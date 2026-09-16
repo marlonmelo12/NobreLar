@@ -18,6 +18,7 @@ import {
   Package,
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { TruckBedDiagram } from '../loads/TruckBedDiagram';
 
 interface PreparationViewProps {
   orders: DecoupledOrderInput[];
@@ -27,6 +28,8 @@ interface PreparationViewProps {
   onExecuteDispatch: () => void;
   onClear?: () => void;
   onNavigateToOrders?: () => void;
+  onNavigateToLoads?: () => void;
+  onNavigateToRoutes?: () => void;
 }
 
 export const PreparationView: React.FC<PreparationViewProps> = ({
@@ -37,6 +40,8 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
   onExecuteDispatch,
   onClear,
   onNavigateToOrders,
+  onNavigateToLoads,
+  onNavigateToRoutes,
 }) => {
   // Sub-etapas: 'upload' (Etapa 1), 'trucks' (Etapa 2), 'detail' (Etapa 3)
   // Inicia sempre no passo 1 (upload/visão limpa)
@@ -63,11 +68,12 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
   const trips = dispatchResult?.cargas_caminhao || [];
   const routes = dispatchResult?.roteiros_entrega || [];
 
+  const activeTripId = selectedTripId || (trips.length > 0 ? trips[0].viagem_id : null);
   const selectedTripCarga: CargaCaminhaoViagem | undefined = trips.find(
-    (t) => t.viagem_id === selectedTripId
+    (t) => t.viagem_id === activeTripId
   );
   const selectedTripRoute: RoteiroEntregaViagem | undefined = routes.find(
-    (r) => r.viagem_id === selectedTripId
+    (r) => r.viagem_id === activeTripId
   );
 
   // Manipulador de upload de arquivo JSON/CSV
@@ -106,10 +112,40 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
   return (
     <div className="max-w-6xl mx-auto py-8 px-6 space-y-8 animate-fadeIn">
       {/* Título Centralizado conforme Figma */}
-      <div className="text-center">
+      <div className="text-center space-y-3">
         <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
           Preparação
         </h1>
+
+        {/* Barra de Navegação entre Etapas de Expedição */}
+        {dispatchResult && trips.length > 0 && (
+          <div className="flex items-center justify-center gap-2 bg-slate-100 p-1.5 rounded-2xl max-w-lg mx-auto">
+            <button
+              onClick={() => setCurrentStep('upload')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                currentStep === 'upload' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              1. Importar Pedidos
+            </button>
+            <button
+              onClick={() => setCurrentStep('trucks')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                currentStep === 'trucks' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              2. Viagens ({trips.length})
+            </button>
+            <button
+              onClick={() => setCurrentStep('detail')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                currentStep === 'detail' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              3. Detalhes (Carga & Rota)
+            </button>
+          </div>
+        )}
       </div>
 
       {/* =================================================================== */}
@@ -311,18 +347,36 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
               <span>Voltar para Carregamento</span>
             </button>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              {onNavigateToLoads && (
+                <button
+                  onClick={onNavigateToLoads}
+                  className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Visão Cargas</span>
+                </button>
+              )}
+              {onNavigateToRoutes && (
+                <button
+                  onClick={onNavigateToRoutes}
+                  className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Route className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Visão Rotas</span>
+                </button>
+              )}
               {onNavigateToOrders && (
                 <button
                   onClick={onNavigateToOrders}
                   className="text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-500 px-3.5 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <Package className="w-4 h-4" />
-                  <span>Ver Todos os Pedidos ({dispatchResult?.resumo.total_valid_deliveries || orders.length})</span>
+                  <span>Todos os Pedidos</span>
                 </button>
               )}
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                {trips.length} Viagens Alocadas
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                {trips.length} Viagens
               </span>
             </div>
           </div>
@@ -493,74 +547,82 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
           {/* MODO A: VISÃO CARGA NO CAMINHÃO (LIFO + Agrupamento Pedidos)   */}
           {/* ============================================================= */}
           {detailMode === 'carga' && (
-            <div className="border border-amber-400 bg-white rounded-2xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-amber-300">
-                    <tr>
-                      <th className="py-3 px-4">Produto</th>
-                      <th className="py-3 px-4">Unidade de Venda</th>
-                      <th className="py-3 px-4 text-center">Quantidade</th>
-                      <th className="py-3 px-4 text-right">Volume</th>
-                      <th className="py-3 px-4 text-right">Peso</th>
-                      <th className="py-3 px-4 text-right">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedTripCarga.pedidos_carroceria.map((ped, pedIdx) => (
-                      <React.Fragment key={ped.pedido}>
-                        {/* Linha Amarela de Agrupamento por Pedido conforme Figma */}
-                        <tr className="bg-[#FEF3C7] border-t-2 border-b border-amber-300 font-bold text-slate-900">
-                          <td colSpan={6} className="py-2.5 px-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                              <span>
-                                Pedido {String(pedIdx + 1).padStart(3, '0')} — {ped.pedido}{' '}
-                                ({ped.cliente || 'Cliente Nobre Lar'}) • {ped.cidade}
-                              </span>
-                              <span className="text-[11px] font-mono text-slate-700">
-                                {ped.pagamento_na_entrega ? (
-                                  <span className="text-rose-700 font-bold">
-                                    A RECEBER NA ENTREGA
-                                  </span>
-                                ) : (
-                                  <span className="text-emerald-700">Quitado</span>
-                                )}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
+            <div className="space-y-4">
+              {/* Diagrama Esquemático da Carroceria Aberta LIFO */}
+              <TruckBedDiagram
+                pedidos={selectedTripCarga.pedidos_carroceria}
+                vehicleName={selectedTripCarga.veiculo.nome}
+              />
 
-                        {/* Linhas de Produtos pertencentes a este pedido */}
-                        {ped.itens.map((it, itIdx) => (
-                          <tr
-                            key={`${ped.pedido}-${itIdx}`}
-                            className="hover:bg-amber-50/40 border-b border-slate-100 transition"
-                          >
-                            <td className="py-2.5 px-4 font-medium text-slate-900">
-                              {it.descricao}
-                              <span className="block text-[10px] text-slate-400 font-mono">
-                                Cód: {it.codigo}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-4 text-slate-600">{it.unidade}</td>
-                            <td className="py-2.5 px-4 text-center font-mono font-semibold">
-                              {it.quantidade}
-                            </td>
-                            <td className="py-2.5 px-4 text-right font-mono text-slate-600">
-                              {it.volume_total_m3.toFixed(3)} m³
-                            </td>
-                            <td className="py-2.5 px-4 text-right font-mono text-slate-600">
-                              {it.peso_total_kg.toFixed(1)} Kg
-                            </td>
-                            <td className="py-2.5 px-4 text-right font-mono font-semibold text-slate-900">
-                              {fmtMoney(it.quantidade * (it.preco_unitario || 38.0))}
+              <div className="border border-amber-400 bg-white rounded-2xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-50 text-slate-700 font-bold border-b border-amber-300">
+                      <tr>
+                        <th className="py-3 px-4">Produto</th>
+                        <th className="py-3 px-4">Unidade de Venda</th>
+                        <th className="py-3 px-4 text-center">Quantidade</th>
+                        <th className="py-3 px-4 text-right">Volume</th>
+                        <th className="py-3 px-4 text-right">Peso</th>
+                        <th className="py-3 px-4 text-right">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedTripCarga.pedidos_carroceria.map((ped, pedIdx) => (
+                        <React.Fragment key={ped.pedido}>
+                          {/* Linha Amarela de Agrupamento por Pedido conforme Figma */}
+                          <tr className="bg-[#FEF3C7] border-t-2 border-b border-amber-300 font-bold text-slate-900">
+                            <td colSpan={6} className="py-2.5 px-4">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                <span>
+                                  Pedido {String(pedIdx + 1).padStart(3, '0')} — {ped.pedido}{' '}
+                                  ({ped.cliente || 'Cliente Nobre Lar'}) • {ped.cidade}
+                                </span>
+                                <span className="text-[11px] font-mono text-slate-700">
+                                  {ped.pagamento_na_entrega ? (
+                                    <span className="text-rose-700 font-bold">
+                                      A RECEBER NA ENTREGA
+                                    </span>
+                                  ) : (
+                                    <span className="text-emerald-700">Quitado</span>
+                                  )}
+                                </span>
+                              </div>
                             </td>
                           </tr>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+
+                          {/* Linhas de Produtos pertencentes a este pedido */}
+                          {ped.itens.map((it, itIdx) => (
+                            <tr
+                              key={`${ped.pedido}-${itIdx}`}
+                              className="hover:bg-amber-50/40 border-b border-slate-100 transition"
+                            >
+                              <td className="py-2.5 px-4 font-medium text-slate-900">
+                                {it.descricao}
+                                <span className="block text-[10px] text-slate-400 font-mono">
+                                  Cód: {it.codigo}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 text-slate-600">{it.unidade}</td>
+                              <td className="py-2.5 px-4 text-center font-mono font-semibold">
+                                {it.quantidade}
+                              </td>
+                              <td className="py-2.5 px-4 text-right font-mono text-slate-600">
+                                {it.volume_total_m3.toFixed(3)} m³
+                              </td>
+                              <td className="py-2.5 px-4 text-right font-mono text-slate-600">
+                                {it.peso_total_kg.toFixed(1)} Kg
+                              </td>
+                              <td className="py-2.5 px-4 text-right font-mono font-semibold text-slate-900">
+                                {fmtMoney(it.quantidade * (it.preco_unitario || 38.0))}
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

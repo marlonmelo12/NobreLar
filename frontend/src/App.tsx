@@ -6,6 +6,8 @@ import { AxesView } from './components/views/AxesView';
 import { VehiclesView } from './components/views/VehiclesView';
 import { HistoryView } from './components/views/HistoryView';
 import { OrdersView } from './components/views/OrdersView';
+import { TruckLoadView } from './components/loads/TruckLoadView';
+import { DeliveryRouteView } from './components/routes/DeliveryRouteView';
 import { api } from './services/api';
 import { DecoupledOrderInput, DecoupledDispatchResponse } from './types/dispatch';
 
@@ -24,11 +26,17 @@ export const App: React.FC = () => {
     return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
   };
 
-  // 1. Checa a saúde da API backend
-  const checkHealth = useCallback(async () => {
+  // 1. Checa a saúde da API backend e sincroniza despacho ativo se houver
+  const checkHealthAndSync = useCallback(async () => {
     try {
       await api.checkHealth();
       setBackendOnline(true);
+
+      const summary = await api.fetchConsolidatedSummary();
+      if (summary && summary.resumo && summary.resumo.total_records_read > 0) {
+        setDispatchResult(summary);
+        setLastExecutionTime(getFormattedNow());
+      }
     } catch {
       setBackendOnline(false);
     }
@@ -68,10 +76,10 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // 4. Inicialização no Mount (Verifica saúde da API)
+  // 4. Inicialização no Mount (Verifica saúde da API e sincroniza despacho ativo)
   useEffect(() => {
-    checkHealth();
-  }, [checkHealth]);
+    checkHealthAndSync();
+  }, [checkHealthAndSync]);
 
   return (
     <div className="flex h-screen bg-[#FDFDFD] font-sans overflow-hidden text-slate-800">
@@ -106,7 +114,17 @@ export const App: React.FC = () => {
               onExecuteDispatch={handleExecuteDispatch}
               onClear={handleClearDispatch}
               onNavigateToOrders={() => setActiveNav('pedidos')}
+              onNavigateToLoads={() => setActiveNav('cargas')}
+              onNavigateToRoutes={() => setActiveNav('rotas')}
             />
+          )}
+
+          {activeNav === 'cargas' && (
+            <TruckLoadView cargas={dispatchResult?.cargas_caminhao || []} />
+          )}
+
+          {activeNav === 'rotas' && (
+            <DeliveryRouteView roteiros={dispatchResult?.roteiros_entrega || []} />
           )}
 
           {activeNav === 'pedidos' && (

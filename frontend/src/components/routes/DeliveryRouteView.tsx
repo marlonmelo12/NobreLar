@@ -13,14 +13,26 @@ export const DeliveryRouteView: React.FC<DeliveryRouteViewProps> = ({ roteiros }
 
   if (!roteiros || roteiros.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs">
-        <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
-          <Route className="w-7 h-7" />
+      <div className="max-w-6xl mx-auto py-8 px-6 space-y-6 animate-fadeIn">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <Route className="w-8 h-8 text-amber-500" />
+            <span>Ordem de Entregas</span>
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Sequência otimizada de paradas calculada pelo algoritmo TSP, endereços e alertas de cobrança por viagem.
+          </p>
         </div>
-        <h3 className="text-base font-bold text-slate-800">Nenhum Roteiro Disponível</h3>
-        <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-          Execute o processamento de pedidos no cabeçalho para gerar as sequências de entrega via algoritmo TSP.
-        </p>
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
+            <Route className="w-7 h-7" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">Nenhum Roteiro Disponível</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+            Envie um lote de pedidos pelo Swagger ou pela aba <strong>Preparar</strong> para calcular as rotas de entrega e a ordem das paradas.
+          </p>
+        </div>
       </div>
     );
   }
@@ -29,7 +41,16 @@ export const DeliveryRouteView: React.FC<DeliveryRouteViewProps> = ({ roteiros }
   const pdfUrl = api.getDeliveryRoutePdfUrl(currentRoute.viagem_id);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto py-8 px-6 space-y-6 animate-fadeIn">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+          <Route className="w-8 h-8 text-amber-500" />
+          <span>Ordem de Entregas</span>
+        </h1>
+        <p className="text-sm text-slate-500 mt-1">
+          Sequência otimizada de paradas calculada pelo algoritmo TSP, endereços de entrega e valores a receber por viagem.
+        </p>
+      </div>
       
       {/* Seletor de Roteiros */}
       <div className="bg-white rounded-2xl border border-slate-200 p-3 shadow-xs">

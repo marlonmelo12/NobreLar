@@ -2,6 +2,8 @@ import React from 'react';
 import {
   LayoutDashboard,
   Search,
+  Layers,
+  Route,
   Package,
   Radio,
   Truck,
@@ -10,7 +12,15 @@ import {
   XCircle,
 } from 'lucide-react';
 
-export type NavItemKey = 'dashboard' | 'preparar' | 'pedidos' | 'eixos' | 'veiculos' | 'historico';
+export type NavItemKey =
+  | 'dashboard'
+  | 'preparar'
+  | 'cargas'
+  | 'rotas'
+  | 'pedidos'
+  | 'eixos'
+  | 'veiculos'
+  | 'historico';
 
 interface SidebarProps {
   activeItem: NavItemKey;
@@ -26,7 +36,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const menuItems = [
     { key: 'dashboard' as NavItemKey, label: 'Dashboard', icon: LayoutDashboard },
     { key: 'preparar' as NavItemKey, label: 'Preparar', icon: Search },
-    { key: 'pedidos' as NavItemKey, label: 'Pedidos', icon: Package },
+    { key: 'cargas' as NavItemKey, label: 'Cargas no Caminhão', icon: Layers },
+    { key: 'rotas' as NavItemKey, label: 'Ordem de Entregas', icon: Route },
+    { key: 'pedidos' as NavItemKey, label: 'Todos os Pedidos', icon: Package },
     { key: 'eixos' as NavItemKey, label: 'Eixos', icon: Radio },
     { key: 'veiculos' as NavItemKey, label: 'Veículos', icon: Truck },
     { key: 'historico' as NavItemKey, label: 'Histórico', icon: History },
