@@ -133,6 +133,7 @@ export const App: React.FC = () => {
               onClear={handleClearDispatch}
               onNavigateToLoads={() => setActiveNav('cargas')}
               onNavigateToRoutes={() => setActiveNav('rotas')}
+              onNavigateToPrepare={() => setActiveNav('preparar')}
             />
           )}
 

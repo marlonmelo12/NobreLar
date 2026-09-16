@@ -2,21 +2,24 @@ import React, { useState } from 'react';
 import {
   DecoupledOrderInput,
   DecoupledDispatchResponse,
-  CargaCaminhaoViagem,
-  RoteiroEntregaViagem,
 } from '../../types/dispatch';
 import {
   Upload,
-  ArrowLeft,
-  FileText,
+  Download,
+  Play,
   Loader2,
-  MapPin,
-  AlertTriangle,
-  Layers,
-  Route,
+  Trash2,
+  CheckCircle2,
   Package,
+  Layers,
+  Compass,
+  FileSpreadsheet,
 } from 'lucide-react';
-import { api } from '../../services/api';
+import {
+  parseCsvOrders,
+  DEMO_CSV_CONTENT,
+  DEMO_ORDERS,
+} from '../../utils/csvParser';
 
 interface PreparationViewProps {
   orders: DecoupledOrderInput[];
@@ -41,40 +44,33 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
   onNavigateToLoads,
   onNavigateToRoutes,
 }) => {
-  // Sub-etapas: 'upload' (Etapa 1), 'trucks' (Etapa 2), 'detail' (Etapa 3)
-  // Inicia sempre no passo 1 (upload/visão limpa)
-  const [currentStep, setCurrentStep] = useState<'upload' | 'trucks' | 'detail'>('upload');
-  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
-  const [detailMode, setDetailMode] = useState<'carga' | 'rota'>('carga');
+  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
-  // Cálculos agregados da Etapa 1 (Pré-visualização dos pedidos carregados)
+  // Cálculos rápidos de pré-visualização
   const totalPedidos = orders.length;
-  const allItems = orders.flatMap((o) =>
-    o.itens.map((it) => ({
-      ...it,
-      pedidoId: o.id,
-      cliente: o.cliente || 'Cliente',
-      cidade: o.cidade,
-    }))
-  );
-  const totalProdutos = allItems.length;
-  const totalVolumeEstimado = allItems.reduce((acc, it) => acc + (it.quantidade * 0.015), 0);
-  const totalPesoEstimado = allItems.reduce((acc, it) => acc + (it.quantidade * 25.0), 0);
+  const allItens = orders.flatMap((o) => o.itens || []);
+  const totalProdutos = allItens.length;
   const totalValor = orders.reduce((acc, o) => acc + (o.valor || 0), 0);
+  
+  // Estimativa aproximada de peso e volume pré-otimização
+  const totalPesoEstimado = allItens.reduce((acc, it) => {
+    const unit = it.unidade.toUpperCase();
+    const qtd = it.quantidade || 1;
+    if (unit === 'SC') return acc + qtd * 50.0;
+    if (unit === 'CX') return acc + qtd * 28.0;
+    return acc + qtd * 15.0;
+  }, 0);
 
-  // Viagens resultantes
-  const trips = dispatchResult?.cargas_caminhao || [];
-  const routes = dispatchResult?.roteiros_entrega || [];
+  const totalVolumeEstimado = allItens.reduce((acc, it) => {
+    const desc = (it.descricao || '').toUpperCase();
+    const qtd = it.quantidade || 1;
+    if (desc.includes('DAGUA') || desc.includes('BAKOF')) return acc + qtd * 1.2;
+    return acc + qtd * 0.025;
+  }, 0);
 
-  const activeTripId = selectedTripId || (trips.length > 0 ? trips[0].viagem_id : null);
-  const selectedTripCarga: CargaCaminhaoViagem | undefined = trips.find(
-    (t) => t.viagem_id === activeTripId
-  );
-  const selectedTripRoute: RoteiroEntregaViagem | undefined = routes.find(
-    (r) => r.viagem_id === activeTripId
-  );
+  const hasTrips = (dispatchResult?.cargas_caminhao?.length || 0) > 0;
 
-  // Manipulador de upload de arquivo JSON/CSV
+  // Upload de arquivo (CSV ou JSON)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -85,590 +81,361 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
         const content = event.target?.result as string;
         if (file.name.endsWith('.json')) {
           const parsed = JSON.parse(content);
-          const list = Array.isArray(parsed)
+          const list: DecoupledOrderInput[] = Array.isArray(parsed)
             ? parsed
             : parsed.pedidos
             ? parsed.pedidos
-            : (parsed.id || parsed.itens || parsed.items)
-            ? [parsed]
-            : [];
+            : [parsed];
           onUploadCustomOrders(list);
+          setFeedbackMsg(`Arquivo JSON '${file.name}' carregado: ${list.length} pedidos.`);
         } else {
-          alert('Por favor, selecione um arquivo JSON contendo os pedidos faturados.');
+          // Processamento nativo de CSV
+          const parsedOrders = parseCsvOrders(content);
+          if (parsedOrders.length === 0) {
+            alert('Não foi possível identificar pedidos no arquivo CSV. Verifique o delimitador (; ou ,) e as colunas.');
+            return;
+          }
+          onUploadCustomOrders(parsedOrders);
+          setFeedbackMsg(`Arquivo CSV '${file.name}' importado com sucesso: ${parsedOrders.length} pedidos.`);
         }
-      } catch (err) {
-        alert('Formato de arquivo inválido. Certifique-se de selecionar um JSON válido.');
+      } catch {
+        alert('Erro ao processar o arquivo. Certifique-se de selecionar um CSV ou JSON válido.');
       }
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'utf-8');
   };
 
-  // Helper para formatar moeda
+  // Baixar Modelo CSV Oficial
+  const handleDownloadTemplate = () => {
+    const blob = new Blob([DEMO_CSV_CONTENT], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'pedidos_demonstracao_nobre_lar.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setFeedbackMsg('Modelo CSV baixado com sucesso!');
+  };
+
+  // Carregar dados de demonstração com 1 clique
+  const handleLoadDemoData = () => {
+    onUploadCustomOrders(DEMO_ORDERS);
+    setFeedbackMsg('Lote oficial de demonstração (10 pedidos maximizados) carregado com sucesso!');
+  };
+
   const fmtMoney = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-6 space-y-8 animate-fadeIn">
-      {/* Título Centralizado conforme Figma */}
-      <div className="text-center space-y-3">
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-          Preparação
+    <div className="max-w-6xl mx-auto py-8 px-6 space-y-7 animate-fadeIn">
+      {/* Cabeçalho da Aba */}
+      <div className="text-center space-y-1.5">
+        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+          Preparação & Importação de Pedidos
         </h1>
+        <p className="text-xs md:text-sm text-slate-500 max-w-xl mx-auto">
+          Importe o arquivo CSV de faturamento ou carregue o lote de demonstração para planejar a montagem das cargas e roteiros.
+        </p>
+      </div>
 
-        {/* Barra de Navegação entre Etapas de Expedição */}
-        {dispatchResult && trips.length > 0 && (
-          <div className="flex items-center justify-center gap-2 bg-slate-100 p-1.5 rounded-2xl max-w-lg mx-auto">
+      {/* Caixa de Ações de Importação */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-amber-500" />
+              <span>Arquivo de Pedidos Faturados</span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              Formatos aceitos: <strong>.CSV</strong> (separador ponto e vírgula ou vírgula) ou <strong>.JSON</strong>.
+            </p>
+          </div>
+
+          {/* Botões de Ação */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Input de Arquivo */}
+            <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer">
+              <Upload className="w-3.5 h-3.5 text-amber-400" />
+              <span>Escolher Arquivo CSV</span>
+              <input
+                type="file"
+                accept=".csv,.txt,.json"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+
+            {/* Botão Baixar Modelo */}
             <button
-              onClick={() => setCurrentStep('upload')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                currentStep === 'upload' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             >
-              1. Importar Pedidos
+              <Download className="w-3.5 h-3.5" />
+              <span>Baixar Modelo CSV</span>
             </button>
+
+            {/* Botão Carregar Demonstração Instantâneo */}
             <button
-              onClick={() => setCurrentStep('trucks')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                currentStep === 'trucks' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
+              type="button"
+              onClick={handleLoadDemoData}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-950 text-xs font-extrabold rounded-xl shadow-xs transition cursor-pointer"
             >
-              2. Viagens ({trips.length})
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Carregar Demonstração (CSV Otimizado)</span>
             </button>
-            <button
-              onClick={() => setCurrentStep('detail')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                currentStep === 'detail' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              3. Detalhes (Carga & Rota)
-            </button>
+
+            {/* Botão Limpar */}
+            {totalPedidos > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onClear) {
+                    onClear();
+                  } else {
+                    onUploadCustomOrders([]);
+                  }
+                  setFeedbackMsg(null);
+                }}
+                className="p-2 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl border border-rose-200 transition cursor-pointer"
+                title="Limpar pedidos carregados"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mensagem de Feedback */}
+        {feedbackMsg && (
+          <div className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 px-3.5 py-2 rounded-xl flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{feedbackMsg}</span>
           </div>
         )}
       </div>
 
-      {/* =================================================================== */}
-      {/* ETAPA 1: Carregar CSV / Pré-visualização (Figma Imagem 2)            */}
-      {/* =================================================================== */}
-      {currentStep === 'upload' && (
+      {/* Se houver pedidos carregados */}
+      {totalPedidos > 0 ? (
         <div className="space-y-6">
-          {/* Caixa de Carregamento Superior */}
-          <div className="border border-amber-400 bg-white rounded-2xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <Upload className="w-5 h-5 text-amber-600" />
-              <span className="font-semibold text-slate-800 text-sm md:text-base">
-                Carregar Arquivo de Pedidos (JSON / CSV)
-              </span>
-              <label className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-300 cursor-pointer transition">
-                Escolher Arquivo
-                <input
-                  type="file"
-                  accept=".csv,.json"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              {onNavigateToOrders && (orders.length > 0 || dispatchResult) && (
-                <button
-                  onClick={onNavigateToOrders}
-                  className="text-xs text-slate-700 hover:text-slate-950 font-semibold px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition cursor-pointer flex items-center gap-1.5"
-                >
-                  <Package className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Ver Listagem de Pedidos</span>
-                </button>
-              )}
-              {(orders.length > 0 || dispatchResult) && (
-                <button
-                  onClick={() => {
-                    if (onClear) {
-                      onClear();
-                    } else {
-                      onUploadCustomOrders([]);
-                    }
-                  }}
-                  className="text-xs text-rose-600 hover:text-rose-800 font-semibold px-3 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 transition cursor-pointer"
-                >
-                  Limpar Lote / Nova Expedição
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* 5 Cards de Métricas Gerais */}
+          {/* Métricas Compactas do Lote Carregado */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Pedidos</h4>
-              <div className="text-2xl font-bold text-slate-900 font-mono">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Total de Pedidos
+              </span>
+              <div className="text-2xl font-extrabold text-slate-900 font-mono mt-1">
                 {totalPedidos}
               </div>
             </div>
 
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Produtos</h4>
-              <div className="text-2xl font-bold text-slate-900 font-mono">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Itens / Materiais
+              </span>
+              <div className="text-2xl font-extrabold text-slate-900 font-mono mt-1">
                 {totalProdutos}
               </div>
             </div>
 
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Volume</h4>
-              <div className="text-2xl font-bold text-slate-900 font-mono">
-                {totalPedidos === 0
-                  ? '0.00 m³'
-                  : dispatchResult?.resumo.total_allocated_volume_m3
-                  ? `${dispatchResult.resumo.total_allocated_volume_m3.toFixed(2)} m³`
-                  : `${totalVolumeEstimado.toFixed(1)} m³`}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Peso Estimado
+              </span>
+              <div className="text-xl font-extrabold text-slate-900 font-mono mt-1">
+                {Math.round(totalPesoEstimado).toLocaleString('pt-BR')} kg
               </div>
             </div>
 
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Peso</h4>
-              <div className="text-2xl font-bold text-slate-900 font-mono">
-                {totalPedidos === 0
-                  ? '0 Kg'
-                  : dispatchResult?.resumo.total_allocated_weight_kg
-                  ? `${Math.round(dispatchResult.resumo.total_allocated_weight_kg).toLocaleString('pt-BR')} Kg`
-                  : `${Math.round(totalPesoEstimado).toLocaleString('pt-BR')} Kg`}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Volume Estimado
+              </span>
+              <div className="text-xl font-extrabold text-slate-900 font-mono mt-1">
+                {totalVolumeEstimado.toFixed(2)} m³
               </div>
             </div>
 
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm col-span-2 md:col-span-1">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Valor</h4>
-              <div className="text-xl font-bold text-slate-900 font-mono">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 text-center shadow-xs col-span-2 md:col-span-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Faturamento
+              </span>
+              <div className="text-lg font-extrabold text-emerald-700 font-mono mt-1">
                 {fmtMoney(totalValor)}
               </div>
             </div>
           </div>
 
-          {/* Tabela de Produtos Carregados ou Estado Vazio */}
-          {totalPedidos === 0 ? (
-            <div className="border border-amber-400/60 border-dashed bg-white rounded-2xl p-12 text-center shadow-sm">
-              <Upload className="w-10 h-10 text-amber-500/70 mx-auto mb-3" />
-              <h3 className="font-bold text-slate-800 text-base">Nenhum pedido carregado</h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                Clique em <strong>Escolher Arquivo</strong> acima para carregar o lote JSON ou CSV contendo os pedidos faturados reais.
+          {/* Banner de Ação Principal: Otimizar e Gerar Cargas */}
+          <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 border border-slate-800">
+            <div className="space-y-1 text-center md:text-left">
+              <div className="flex items-center gap-2 justify-center md:justify-start">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <h3 className="text-base font-extrabold text-white">
+                  Lote Pronto para Alocação Multi-Viagens
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400">
+                Dispare o algoritmo CP-SAT e TSP para respeitar limites de peso, volume e gerar a rota com menor quilometragem.
               </p>
             </div>
-          ) : (
-            <div className="border border-amber-400 bg-white rounded-2xl overflow-hidden shadow-sm">
-              <div className="max-h-96 overflow-y-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-amber-300 sticky top-0">
-                    <tr>
-                      <th className="py-3 px-4">Produto</th>
-                      <th className="py-3 px-4">Unidade de Venda</th>
-                      <th className="py-3 px-4 text-center">Quantidade</th>
-                      <th className="py-3 px-4 text-right">Volume</th>
-                      <th className="py-3 px-4 text-right">Peso</th>
-                      <th className="py-3 px-4 text-right">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {allItems.slice(0, 50).map((it, idx) => {
-                      const volItem = it.quantidade * 0.015;
-                      const pesoItem = it.quantidade * 25.0;
-                      const valItem = it.subtotal || it.quantidade * (it.preco_unitario || 38.0);
-                      return (
-                        <tr key={idx} className="hover:bg-amber-50/50 transition">
-                          <td className="py-2.5 px-4 font-medium text-slate-900">
-                            {it.descricao}
-                            <span className="block text-[10px] text-slate-400 font-mono">
-                              Cód: {it.codigo} • Pedido: {it.pedidoId} ({it.cidade})
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-4 text-slate-600">{it.unidade}</td>
-                          <td className="py-2.5 px-4 text-center font-mono font-semibold">
-                            {it.quantidade}
-                          </td>
-                          <td className="py-2.5 px-4 text-right font-mono text-slate-600">
-                            {volItem.toFixed(3)} m³
-                          </td>
-                          <td className="py-2.5 px-4 text-right font-mono text-slate-600">
-                            {pesoItem.toFixed(1)} Kg
-                          </td>
-                          <td className="py-2.5 px-4 text-right font-mono font-semibold text-slate-900">
-                            {fmtMoney(valItem)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
-          {/* Botão Inferior de Execução */}
-          <div className="flex items-center justify-between pt-2">
-            {dispatchResult && trips.length > 0 && (
-              <button
-                onClick={() => setCurrentStep('trucks')}
-                className="text-amber-700 hover:text-amber-800 font-semibold text-sm flex items-center gap-1.5 cursor-pointer"
-              >
-                Ver viagens já calculadas ({trips.length}) &rarr;
-              </button>
-            )}
             <button
-              onClick={() => {
-                onExecuteDispatch();
-                setCurrentStep('trucks');
-              }}
-              disabled={isProcessing || totalPedidos === 0}
-              className="ml-auto bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold px-10 py-3 rounded-xl shadow transition flex items-center gap-2 text-base cursor-pointer"
+              type="button"
+              onClick={onExecuteDispatch}
+              disabled={isProcessing}
+              className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:opacity-50 text-slate-950 font-black text-sm rounded-xl shadow transition cursor-pointer shrink-0"
             >
               {isProcessing ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Otimizando Lote...</span>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Calculando Cargas & Rotas...</span>
                 </>
               ) : (
-                <span>Executar</span>
+                <>
+                  <Play className="w-4 h-4 fill-slate-950" />
+                  <span>Otimizar e Gerar Cargas</span>
+                </>
               )}
             </button>
           </div>
-        </div>
-      )}
 
-      {/* =================================================================== */}
-      {/* ETAPA 2: Lista de Caminhões / Eixos (Figma Imagem 3)                */}
-      {/* =================================================================== */}
-      {currentStep === 'trucks' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <button
-              onClick={() => setCurrentStep('upload')}
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-sm transition self-start sm:self-auto cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Voltar para Carregamento</span>
-            </button>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {onNavigateToLoads && (
-                <button
-                  onClick={onNavigateToLoads}
-                  className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Layers className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Visão Cargas</span>
-                </button>
-              )}
-              {onNavigateToRoutes && (
-                <button
-                  onClick={onNavigateToRoutes}
-                  className="text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Route className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Visão Rotas</span>
-                </button>
-              )}
-              {onNavigateToOrders && (
-                <button
-                  onClick={onNavigateToOrders}
-                  className="text-xs font-bold text-slate-900 bg-amber-400 hover:bg-amber-500 px-3.5 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Package className="w-4 h-4" />
-                  <span>Todos os Pedidos</span>
-                </button>
-              )}
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                {trips.length} Viagens
-              </span>
-            </div>
-          </div>
-
-          {dispatchResult?.pedidos_nao_alocados && dispatchResult.pedidos_nao_alocados.length > 0 && (
-            <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-xs">
-              <div className="flex items-center gap-2.5">
-                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          {/* Banner de Viagens Concluídas (se houver) */}
+          {hasTrips && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-6 h-6" />
+                </div>
                 <div>
-                  <span className="font-bold">
-                    {dispatchResult.pedidos_nao_alocados.length} pedido(s) não foram alocados nesta janela.
-                  </span>
-                  <span className="block text-amber-700 text-[11px]">
-                    Capacidade da frota ou limite de volume excedido.
-                  </span>
+                  <h4 className="text-sm font-bold text-emerald-950">
+                    {dispatchResult?.cargas_caminhao.length} viagens geradas e otimizadas com sucesso!
+                  </h4>
+                  <p className="text-xs text-emerald-800">
+                    Os materiais foram estivados e as rotas TSP calculadas a partir do CD Crateús.
+                  </p>
                 </div>
               </div>
-              {onNavigateToOrders && (
-                <button
-                  onClick={onNavigateToOrders}
-                  className="px-3.5 py-1.5 bg-amber-400 hover:bg-amber-500 font-bold text-slate-950 rounded-xl transition shrink-0 cursor-pointer self-start sm:self-auto"
-                >
-                  Ver Pedidos Não Alocados &rarr;
-                </button>
-              )}
-            </div>
-          )}
 
-          {/* Lista de Cards Horizontais com borda dourada conforme Figma */}
-          <div className="space-y-4">
-            {trips.map((viagem, index) => {
-              return (
-                <div
-                  key={viagem.viagem_id}
-                  className="border border-amber-400 bg-white rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm hover:shadow transition"
-                >
-                  <div className="space-y-1 w-full md:w-auto">
-                    <div className="flex items-center gap-2.5">
-                      <h3 className="text-base md:text-lg font-bold text-slate-900">
-                        Viagem {index + 1} - {viagem.eixo_nome}
-                      </h3>
-                    </div>
-
-                    <p className="text-xs text-slate-500 font-mono">
-                      {viagem.veiculo.nome} ({viagem.veiculo.placa}) • {viagem.total_pedidos} pedidos •{' '}
-                      {Math.round(viagem.peso_total_kg)} kg ({viagem.ocupacao_peso_pct}%) •{' '}
-                      {viagem.volume_total_m3.toFixed(2)} m³ • Recurso Limitante:{' '}
-                      <span className="font-bold text-slate-800">{viagem.recurso_limitante}</span>
-                    </p>
-                  </div>
-
+              <div className="flex items-center gap-2 shrink-0">
+                {onNavigateToLoads && (
                   <button
-                    onClick={() => {
-                      setSelectedTripId(viagem.viagem_id);
-                      setCurrentStep('detail');
-                    }}
-                    className="w-full md:w-auto bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-950 font-bold px-8 py-2.5 rounded-xl shadow-sm transition text-sm cursor-pointer"
+                    type="button"
+                    onClick={onNavigateToLoads}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
                   >
-                    Visualizar
+                    <Layers className="w-3.5 h-3.5" />
+                    <span>Ver Cargas no Caminhão</span>
                   </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* =================================================================== */}
-      {/* ETAPA 3: Detalhe da Viagem / Eixo (Figma Imagem 4)                  */}
-      {/* =================================================================== */}
-      {currentStep === 'detail' && selectedTripCarga && (
-        <div className="space-y-6">
-          {/* Botão de Retorno e Alternador de Visão */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <button
-              onClick={() => setCurrentStep('trucks')}
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-sm transition self-start"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Voltar para Lista de Viagens</span>
-            </button>
-
-            <div className="flex items-center gap-2 self-end">
-              <button
-                onClick={() => setDetailMode('carga')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  detailMode === 'carga'
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Carga da Viagem</span>
-              </button>
-
-              <button
-                onClick={() => setDetailMode('rota')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  detailMode === 'rota'
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                <Route className="w-3.5 h-3.5" />
-                <span>Roteiro TSP</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Barra Superior Dourada/Amarela conforme Figma */}
-          <div className="bg-amber-400 text-slate-950 font-bold text-center py-3 px-6 rounded-2xl shadow-sm text-base md:text-lg tracking-tight">
-            {selectedTripCarga.titulo} — {selectedTripCarga.eixo_nome} ({selectedTripCarga.veiculo.nome})
-          </div>
-
-          {/* 5 Cards de Métricas Específicos do Caminhão */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Pedidos</h4>
-              <div className="text-2xl font-bold text-slate-900 font-mono">
-                {selectedTripCarga.total_pedidos}
-              </div>
-            </div>
-
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Produtos</h4>
-              <div className="text-2xl font-bold text-slate-900 font-mono">
-                {selectedTripCarga.pedidos_carroceria.reduce(
-                  (acc, p) => acc + p.itens.length,
-                  0
+                )}
+                {onNavigateToRoutes && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToRoutes}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+                  >
+                    <Compass className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Ver Ordem de Entregas</span>
+                  </button>
                 )}
               </div>
             </div>
+          )}
 
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Volume</h4>
-              <div className="text-lg md:text-xl font-bold text-slate-900 font-mono">
-                {selectedTripCarga.volume_total_m3.toFixed(2)} m³ /{' '}
-                <span className="text-xs text-slate-400">
-                  {selectedTripCarga.veiculo.volume_util_m3} m³
-                </span>
-              </div>
+          {/* Tabela de Pré-visualização dos Pedidos Importados */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Package className="w-4 h-4 text-amber-500" />
+                <span>Pedidos do Lote ({totalPedidos})</span>
+              </h3>
+              {onNavigateToOrders && (
+                <button
+                  type="button"
+                  onClick={onNavigateToOrders}
+                  className="text-xs text-slate-600 hover:text-slate-900 font-semibold"
+                >
+                  Abrir Listagem Completa &rarr;
+                </button>
+              )}
             </div>
 
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Peso</h4>
-              <div className="text-lg md:text-xl font-bold text-slate-900 font-mono">
-                {Math.round(selectedTripCarga.peso_total_kg).toLocaleString('pt-BR')} Kg
-              </div>
-            </div>
-
-            <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm col-span-2 md:col-span-1">
-              <h4 className="text-xs font-semibold text-slate-600 mb-1">Valor</h4>
-              <div className="text-base md:text-lg font-bold text-slate-900 font-mono">
-                {fmtMoney(selectedTripCarga.faturamento_total)}
-              </div>
-            </div>
-          </div>
-
-          {/* MODO A: VISÃO CARGA NO CAMINHÃO (Agrupamento Pedidos) */}
-          {detailMode === 'carga' && (
-            <div className="space-y-4">
-              <div className="border border-amber-400 bg-white rounded-2xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-slate-50 text-slate-700 font-bold border-b border-amber-300">
-                      <tr>
-                        <th className="py-3 px-4">Produto</th>
-                        <th className="py-3 px-4">Unidade de Venda</th>
-                        <th className="py-3 px-4 text-center">Quantidade</th>
-                        <th className="py-3 px-4 text-right">Volume</th>
-                        <th className="py-3 px-4 text-right">Peso</th>
-                        <th className="py-3 px-4 text-right">Valor</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedTripCarga.pedidos_carroceria.map((ped, pedIdx) => (
-                        <React.Fragment key={ped.pedido}>
-                          {/* Linha Amarela de Agrupamento por Pedido conforme Figma */}
-                          <tr className="bg-[#FEF3C7] border-t-2 border-b border-amber-300 font-bold text-slate-900">
-                            <td colSpan={6} className="py-2.5 px-4">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                                <span>
-                                  Pedido {String(pedIdx + 1).padStart(3, '0')} — {ped.pedido}{' '}
-                                  ({ped.cliente || 'Cliente Nobre Lar'}) • {ped.cidade}
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-
-                          {/* Linhas de Produtos pertencentes a este pedido */}
-                          {ped.itens.map((it, itIdx) => (
-                            <tr
-                              key={`${ped.pedido}-${itIdx}`}
-                              className="hover:bg-amber-50/40 border-b border-slate-100 transition"
-                            >
-                              <td className="py-2.5 px-4 font-medium text-slate-900">
-                                {it.descricao}
-                                <span className="block text-[10px] text-slate-400 font-mono">
-                                  Cód: {it.codigo}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-4 text-slate-600">{it.unidade}</td>
-                              <td className="py-2.5 px-4 text-center font-mono font-semibold">
-                                {it.quantidade}
-                              </td>
-                              <td className="py-2.5 px-4 text-right font-mono text-slate-600">
-                                {it.volume_total_m3.toFixed(3)} m³
-                              </td>
-                              <td className="py-2.5 px-4 text-right font-mono text-slate-600">
-                                {it.peso_total_kg.toFixed(1)} Kg
-                              </td>
-                              <td className="py-2.5 px-4 text-right font-mono font-semibold text-slate-900">
-                                {fmtMoney(it.quantidade * (it.preco_unitario || 38.0))}
-                              </td>
-                            </tr>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-100">
+                  <tr>
+                    <th className="py-3 px-4">Pedido</th>
+                    <th className="py-3 px-4">Cliente / Cidade</th>
+                    <th className="py-3 px-4">Endereço</th>
+                    <th className="py-3 px-4">Materiais do Pedido</th>
+                    <th className="py-3 px-4 text-right">Valor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {orders.map((ped, idx) => (
+                    <tr key={ped.id || idx} className="hover:bg-slate-50/70 transition">
+                      <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                        {ped.id}
+                        {ped.urgente && (
+                          <span className="block text-[10px] font-bold text-rose-600">
+                            (Urgente)
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-bold text-slate-900 block">{ped.cliente}</span>
+                        <span className="text-[11px] text-slate-500">{ped.cidade}</span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600 max-w-xs truncate">
+                        {ped.endereco}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex flex-col gap-0.5 max-w-md">
+                          {ped.itens.slice(0, 3).map((it, i) => (
+                            <span key={i} className="text-[11px] text-slate-700 truncate">
+                              • <strong>{it.quantidade} {it.unidade}</strong> {it.descricao}
+                            </span>
                           ))}
-                        </React.Fragment>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                          {ped.itens.length > 3 && (
+                            <span className="text-[10px] text-slate-400">
+                              + {ped.itens.length - 3} outros materiais...
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
+                        {fmtMoney(ped.valor)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-
-          {/* ============================================================= */}
-          {/* MODO B: VISÃO ROTEIRO TSP (Sequência de Paradas e Cobrança)    */}
-          {/* ============================================================= */}
-          {detailMode === 'rota' && selectedTripRoute && (
-            <div className="space-y-4">
-              <div className="bg-slate-900 text-white p-4 rounded-xl flex items-center justify-between text-xs">
-                <div>
-                  <span className="text-slate-400 block">Extensão Estimada da Rota</span>
-                  <span className="text-lg font-bold font-mono">
-                    {selectedTripRoute.distancia_estimada_km.toFixed(1)} km
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block">Faturamento da Viagem</span>
-                  <span className="text-lg font-bold font-mono text-amber-400">
-                    {fmtMoney(selectedTripRoute.faturamento_total)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block">Total Paradas</span>
-                  <span className="text-lg font-bold font-mono">
-                    {selectedTripRoute.total_paradas}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {selectedTripRoute.paradas.map((parada) => (
-                  <div
-                    key={parada.parada}
-                    className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm transition"
-                  >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-slate-900 text-amber-400 font-bold text-xs flex items-center justify-center">
-                          #{parada.parada}
-                        </span>
-                        <h4 className="font-bold text-sm text-slate-900">
-                          {parada.pedido} — {parada.cliente}
-                        </h4>
-                      </div>
-                    </div>
-
-                    <div className="mt-2.5 text-xs text-slate-600 flex items-start gap-1.5">
-                      <MapPin className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <span>{parada.endereco_completo}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Botão Inferior Direito "Gerar PDF" conforme Figma */}
-          <div className="flex items-center justify-end pt-2">
-            <a
-              href={
-                detailMode === 'carga'
-                  ? api.getLoadingSheetPdfUrl(selectedTripCarga.viagem_id)
-                  : api.getDeliveryRoutePdfUrl(selectedTripCarga.viagem_id)
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-950 font-bold px-10 py-3 rounded-xl shadow transition flex items-center gap-2 text-sm md:text-base cursor-pointer"
-            >
-              <FileText className="w-5 h-5" />
-              <span>Gerar PDF</span>
-            </a>
           </div>
+        </div>
+      ) : (
+        /* Estado Vazio Quando Nenhum Pedido Foi Importado */
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+            <FileSpreadsheet className="w-7 h-7" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-slate-900">
+              Nenhum Pedido Carregado
+            </h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Clique em <strong>Escolher Arquivo CSV</strong> para importar seus pedidos ou em <strong>Carregar Demonstração</strong> para iniciar uma simulação imediata de alta capacidade.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLoadDemoData}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-950 text-xs font-black rounded-xl shadow-xs transition cursor-pointer"
+          >
+            <Play className="w-3.5 h-3.5 fill-slate-950" />
+            <span>Carregar Lote de Demonstração com 1 Clique</span>
+          </button>
         </div>
       )}
     </div>

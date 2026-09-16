@@ -1,253 +1,304 @@
 import React, { useEffect, useState } from 'react';
 import { DecoupledDispatchResponse } from '../../types/dispatch';
-import { Loader2, Trash2 } from 'lucide-react';
+import {
+  Package,
+  CheckCircle,
+  XCircle,
+  Compass,
+  Truck,
+  TrendingUp,
+  Layers,
+  ArrowRight,
+  Boxes,
+  Weight,
+} from 'lucide-react';
 import { api } from '../../services/api';
 
 interface DashboardViewProps {
   dispatchResult: DecoupledDispatchResponse | null;
   totalOrdersCount: number;
-  lastExecutionTime: string | null;
-  isProcessing: boolean;
-  onExecute: () => void;
-  onSimulateApiLoad: () => void;
+  lastExecutionTime?: string | null;
+  isProcessing?: boolean;
+  onExecute?: () => void;
+  onSimulateApiLoad?: () => void;
   onClear?: () => void;
   onNavigateToLoads?: () => void;
   onNavigateToRoutes?: () => void;
+  onNavigateToPrepare?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   dispatchResult,
   totalOrdersCount,
-  lastExecutionTime,
-  isProcessing,
-  onExecute,
-  onSimulateApiLoad,
-  onClear,
   onNavigateToLoads,
   onNavigateToRoutes,
+  onNavigateToPrepare,
 }) => {
   const [axesCount, setAxesCount] = useState(6);
   const [vehiclesCount, setVehiclesCount] = useState(4);
 
   useEffect(() => {
-    api.fetchAxisProfiles().then((data) => {
-      if (data && data.length > 0) setAxesCount(data.length);
-    }).catch(() => {});
+    api
+      .fetchAxisProfiles()
+      .then((data) => {
+        if (data && data.length > 0) setAxesCount(data.length);
+      })
+      .catch(() => {});
 
-    api.fetchVehicles().then((data) => {
-      if (data && data.length > 0) setVehiclesCount(data.length);
-    }).catch(() => {});
+    api
+      .fetchVehicles()
+      .then((data) => {
+        if (data && data.length > 0) setVehiclesCount(data.length);
+      })
+      .catch(() => {});
   }, []);
 
   const resumo = dispatchResult?.resumo;
   const pedidosTotais = resumo ? resumo.total_records_read : totalOrdersCount;
-  const pedidosValidos = resumo ? resumo.total_valid_deliveries : 0;
+  const pedidosValidos = resumo
+    ? resumo.total_allocated_orders > 0
+      ? resumo.total_allocated_orders
+      : resumo.total_valid_deliveries
+    : 0;
   const pedidosDescartados = resumo ? resumo.total_discarded_cleaning : 0;
-  const hasTrips = (dispatchResult?.cargas_caminhao?.length || 0) > 0;
-  const hasPendingOrders = pedidosValidos > 0 && !hasTrips;
+  const viagensCount = dispatchResult?.cargas_caminhao?.length || 0;
+  const faturamentoTotal = resumo?.total_invoiced_value || 0;
+  const pesoTotal = resumo?.total_allocated_weight_kg || 0;
+  const volumeTotal = resumo?.total_allocated_volume_m3 || 0;
+
+  const fmtMoney = (val: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-6 space-y-8 animate-fadeIn">
-      {/* Título Centralizado conforme Figma */}
-      <div className="text-center space-y-1">
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-          Dashboard
+    <div className="max-w-6xl mx-auto py-8 px-6 space-y-8 animate-fadeIn">
+      {/* Cabeçalho Executivo */}
+      <div className="text-center space-y-2">
+        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+          Painel de Indicadores (KPIs)
         </h1>
-        <p className="text-xs text-slate-500">
-          Painel operacional de expedição, limites de capacidade e controle de viagens da Nobre Lar.
+        <p className="text-xs md:text-sm text-slate-500 max-w-xl mx-auto">
+          Visão consolidada do faturamento diário, capacidade operacional da frota e eficiência das viagens.
         </p>
       </div>
 
-      {/* Banner de Estado dos Pedidos */}
-      {hasPendingOrders && (
-        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 font-bold flex items-center justify-center shrink-0">
-              ⚡
-            </div>
-            <div>
-              <h4 className="text-sm font-extrabold text-amber-950">
-                {pedidosValidos} pedidos carregados via JSON da API aguardando alocação
-              </h4>
-              <p className="text-xs text-amber-800">
-                Os pedidos estão disponíveis no sistema em estado desalocado. Clique no botão <strong>Executar</strong> abaixo para realizar o controle de limites e roteirização.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onExecute}
-            disabled={isProcessing}
-            className="shrink-0 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-xs transition"
-          >
-            Executar Agora
-          </button>
+      {/* SEÇÃO 1: KPIs Principais de Pedidos */}
+      <div>
+        <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+          <Package className="w-3.5 h-3.5" />
+          <span>Fluxo de Pedidos do Faturamento</span>
         </div>
-      )}
-
-      {/* Banner de Viagens Concluídas */}
-      {hasTrips && (
-        <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white font-bold flex items-center justify-center shrink-0">
-              ✓
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          {/* KPI 1: Pedidos Totais */}
+          <div className="border border-slate-200 bg-white rounded-2xl p-6 shadow-xs hover:border-slate-300 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Pedidos Totais
+              </span>
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-700">
+                <Package className="w-4 h-4" />
+              </span>
             </div>
-            <div>
-              <h4 className="text-sm font-extrabold text-emerald-950">
-                {dispatchResult?.cargas_caminhao.length} viagens alocadas e roteirizadas com sucesso!
-              </h4>
-              <p className="text-xs text-emerald-800">
-                Total de {resumo?.total_allocated_orders} pedidos expedidos com definição física de estivagem e ordem de entregas TSP.
-              </p>
+            <div className="text-4xl font-extrabold text-slate-900 font-mono mt-3">
+              {pedidosTotais}
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {onNavigateToLoads && (
-              <button
-                onClick={onNavigateToLoads}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition"
-              >
-                Ver Cargas
-              </button>
-            )}
-            {onNavigateToRoutes && (
-              <button
-                onClick={onNavigateToRoutes}
-                className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition"
-              >
-                Ver Ordem de Entregas
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Card Principal: Realizar controle dos limites */}
-      <div className="border border-amber-400 bg-white rounded-2xl shadow-sm overflow-hidden transition-all duration-150">
-        <div className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-1 text-center md:text-left">
-            <h2 className="text-xl font-bold text-slate-800">
-              Realizar controle dos limites
-            </h2>
-            <p className="text-sm text-slate-500">
-              Dispara a otimização CP-SAT multi-viagens e roteirização TSP sobre os pedidos faturados.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap justify-center md:justify-end w-full md:w-auto">
-            {/* Botão Simular Carga da API */}
-            <button
-              onClick={onSimulateApiLoad}
-              disabled={isProcessing}
-              title="Carrega 5 pedidos simulados da API em formato JSON (ficam inicialmente desalocados)"
-              className="bg-slate-100 hover:bg-slate-200 active:bg-slate-300 disabled:opacity-50 text-slate-800 font-bold px-5 py-3 rounded-xl border border-slate-300 transition-all duration-150 flex items-center justify-center gap-2 text-sm cursor-pointer shrink-0"
-            >
-              <span>Simular Carga da API</span>
-            </button>
-
-            {/* Botão Executar Controle de Limites */}
-            <button
-              onClick={onExecute}
-              disabled={isProcessing}
-              className="bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold px-10 py-3 rounded-xl shadow-sm transition-all duration-150 flex items-center justify-center gap-2 text-base cursor-pointer shrink-0"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Processando...</span>
-                </>
-              ) : (
-                <span>Executar</span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Faixa inferior amarela suave */}
-        <div className="bg-[#FEF3C7] border-t border-amber-200/80 px-8 py-3 flex items-center justify-between text-xs text-slate-700 font-semibold">
-          <div className="flex items-center gap-3">
-            <span>Última execução:</span>
-            <span className="font-mono text-slate-900">
-              {lastExecutionTime || 'Nenhuma execução realizada'}
+            <span className="text-[11px] text-slate-400 mt-2 block">
+              Registros brutos faturados no lote
             </span>
           </div>
 
-          {dispatchResult && onClear && (
-            <button
-              onClick={onClear}
-              className="text-xs text-rose-700 hover:text-rose-900 font-bold flex items-center gap-1 bg-white/80 hover:bg-white px-2.5 py-1 rounded-lg border border-amber-300 transition cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Limpar Resultados</span>
-            </button>
-          )}
+          {/* KPI 2: Pedidos Elegíveis / Alocados */}
+          <div className="border border-emerald-200 bg-emerald-50/40 rounded-2xl p-6 shadow-xs hover:border-emerald-300 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                Pedidos Elegíveis / Alocados
+              </span>
+              <span className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
+                <CheckCircle className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-4xl font-extrabold text-emerald-900 font-mono mt-3">
+              {pedidosValidos}
+            </div>
+            <span className="text-[11px] text-emerald-700 font-medium mt-2 block">
+              Elegíveis para expedição rodoviária
+            </span>
+          </div>
+
+          {/* KPI 3: Pedidos Descartados */}
+          <div className="border border-slate-200 bg-white rounded-2xl p-6 shadow-xs hover:border-slate-300 transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Pedidos Descartados
+              </span>
+              <span className="p-2 rounded-xl bg-slate-100 text-slate-500">
+                <XCircle className="w-4 h-4" />
+              </span>
+            </div>
+            <div className="text-4xl font-extrabold text-slate-600 font-mono mt-3">
+              {pedidosDescartados}
+            </div>
+            <span className="text-[11px] text-slate-400 mt-2 block">
+              Retirada no balcão ou cancelados
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Linha de 3 Cards de Métricas de Pedidos */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="border border-amber-400 bg-white rounded-2xl p-6 text-center shadow-sm hover:shadow transition-shadow">
-          <h3 className="text-base font-semibold text-slate-700 mb-2">
-            Pedidos Totais
-          </h3>
-          <div className="text-4xl font-extrabold text-slate-900 font-mono">
-            {pedidosTotais}
-          </div>
-          <span className="text-xs text-slate-400 mt-2 block">
-            Registros brutos faturados
-          </span>
+      {/* SEÇÃO 2: KPIs de Recursos Operacionais */}
+      <div>
+        <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+          <Truck className="w-3.5 h-3.5" />
+          <span>Infraestrutura e Frota Disponível</span>
         </div>
-
-        <div className="border border-amber-400 bg-white rounded-2xl p-6 text-center shadow-sm hover:shadow transition-shadow">
-          <h3 className="text-base font-semibold text-slate-700 mb-2">
-            Pedidos Válidos
-          </h3>
-          <div className="text-4xl font-extrabold text-slate-900 font-mono">
-            {pedidosValidos}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {/* KPI 4: Eixos Rodoviários */}
+          <div className="border border-slate-200 bg-white rounded-2xl p-6 shadow-xs hover:border-slate-300 transition">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  Eixos Rodoviários
+                </span>
+                <span className="text-xs text-slate-400">Macrorregião CD Crateús</span>
+              </div>
+              <span className="p-2.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+                <Compass className="w-5 h-5" />
+              </span>
+            </div>
+            <div className="text-4xl font-extrabold text-slate-900 font-mono mt-3">
+              {axesCount} Eixos
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2">
+              Urbano, Piauí, Sertão Central, Sul, Norte e Sertões dos Inhamuns
+            </p>
           </div>
-          <span className="text-xs text-emerald-600 font-semibold mt-2 block">
-            Elegíveis para expedição rodoviária
-          </span>
-        </div>
 
-        <div className="border border-amber-400 bg-white rounded-2xl p-6 text-center shadow-sm hover:shadow transition-shadow">
-          <h3 className="text-base font-semibold text-slate-700 mb-2">
-            Pedidos Descartados
-          </h3>
-          <div className="text-4xl font-extrabold text-slate-900 font-mono">
-            {pedidosDescartados}
+          {/* KPI 5: Frota de Veículos */}
+          <div className="border border-slate-200 bg-white rounded-2xl p-6 shadow-xs hover:border-slate-300 transition">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                  Veículos da Frota
+                </span>
+                <span className="text-xs text-slate-400">Capacidade Operacional</span>
+              </div>
+              <span className="p-2.5 rounded-xl bg-slate-100 text-slate-800 border border-slate-200">
+                <Truck className="w-5 h-5" />
+              </span>
+            </div>
+            <div className="text-4xl font-extrabold text-slate-900 font-mono mt-3">
+              {vehiclesCount} Caminhões
+            </div>
+            <p className="text-[11px] text-slate-500 mt-2">
+              2 Mercedes-Benz Accelo 815 (4.800 kg) • 1 Kia Bongo • 1 Hyundai HR
+            </p>
           </div>
-          <span className="text-xs text-rose-600 font-semibold mt-2 block">
-            Retiradas balcão ou cancelados
-          </span>
         </div>
       </div>
 
-      {/* Linha de 2 Cards de Métricas Operacionais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="border border-amber-400 bg-white rounded-2xl p-8 text-center shadow-sm hover:shadow transition-shadow">
-          <h3 className="text-base font-semibold text-slate-700 mb-2">
-            Eixos
-          </h3>
-          <div className="text-5xl font-black text-slate-900 font-mono">
-            {axesCount}
+      {/* SEÇÃO 3: KPIs de Resultados da Expedição (Exibidos quando há viagens) */}
+      {viagensCount > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>Resultados Consolidados da Expedição</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {onNavigateToLoads && (
+                <button
+                  onClick={onNavigateToLoads}
+                  className="text-xs font-bold text-slate-700 hover:text-slate-950 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Ver Cargas</span>
+                </button>
+              )}
+              {onNavigateToRoutes && (
+                <button
+                  onClick={onNavigateToRoutes}
+                  className="text-xs font-bold text-slate-700 hover:text-slate-950 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Compass className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Ver Roteiros</span>
+                </button>
+              )}
+            </div>
           </div>
-          <span className="text-xs text-slate-400 mt-2 block">
-            Macrorregião de Crateús (Eixos 0 a 5)
-          </span>
-        </div>
 
-        <div className="border border-amber-400 bg-white rounded-2xl p-8 text-center shadow-sm hover:shadow transition-shadow">
-          <h3 className="text-base font-semibold text-slate-700 mb-2">
-            Veículos
-          </h3>
-          <div className="text-5xl font-black text-slate-900 font-mono">
-            {vehiclesCount}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            <div className="border border-slate-200 bg-white rounded-2xl p-5 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Viagens Geradas
+              </span>
+              <div className="text-3xl font-extrabold text-slate-900 font-mono mt-1">
+                {viagensCount}
+              </div>
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                Alocação multi-viagens
+              </span>
+            </div>
+
+            <div className="border border-slate-200 bg-white rounded-2xl p-5 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Faturamento Expedido
+              </span>
+              <div className="text-2xl lg:text-3xl font-extrabold text-emerald-700 font-mono mt-1">
+                {fmtMoney(faturamentoTotal)}
+              </div>
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                Valor das notas fiscais
+              </span>
+            </div>
+
+            <div className="border border-slate-200 bg-white rounded-2xl p-5 shadow-xs">
+              <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <Weight className="w-3 h-3" />
+                <span>Peso Total Carga</span>
+              </div>
+              <div className="text-2xl lg:text-3xl font-extrabold text-slate-900 font-mono mt-1">
+                {pesoTotal.toFixed(1)} <span className="text-base font-normal text-slate-400">kg</span>
+              </div>
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                Massa expedida nos caminhões
+              </span>
+            </div>
+
+            <div className="border border-slate-200 bg-white rounded-2xl p-5 shadow-xs">
+              <div className="flex items-center gap-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <Boxes className="w-3 h-3" />
+                <span>Volume Total</span>
+              </div>
+              <div className="text-2xl lg:text-3xl font-extrabold text-slate-900 font-mono mt-1">
+                {volumeTotal.toFixed(2)} <span className="text-base font-normal text-slate-400">m³</span>
+              </div>
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                Cubagem física das cargas
+              </span>
+            </div>
           </div>
-          <span className="text-xs text-slate-400 mt-2 block">
-            2 Accelo 815 • 1 Kia Bongo • 1 Hyundai HR
-          </span>
         </div>
-      </div>
+      )}
+
+      {/* Card Informativo para Importação (quando ainda não há resultado) */}
+      {viagensCount === 0 && onNavigateToPrepare && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <h4 className="text-sm font-bold text-slate-900">
+              Pronto para planejar uma nova expedição?
+            </h4>
+            <p className="text-xs text-slate-500">
+              Acesse a aba <strong>Preparar</strong> para importar o arquivo CSV de faturamento diário e calcular as viagens otimizadas.
+            </p>
+          </div>
+          <button
+            onClick={onNavigateToPrepare}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-xs transition cursor-pointer shrink-0"
+          >
+            <span>Ir para Preparar Cargas</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
