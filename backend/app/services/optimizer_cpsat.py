@@ -120,7 +120,7 @@ def solve_load_allocation(
             pre_excluded_reasons[i] = "VEICULO_INCOMPATIVEL_6M"
             model.Add(x[i] == 0)
 
-        # Restrição territorial de veículos menores (Bongo, HR, Titan)
+        # Restrição territorial de caminhões médios (Kia Bongo e Hyundai HR)
         if restricted_to_crateus:
             city_name = str(o.get("city_name", "")).strip().upper()
             meta_city = CITY_TO_AXIS_MAP.get(city_name)

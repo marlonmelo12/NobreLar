@@ -74,10 +74,17 @@ def init_db(db: Session) -> None:
             ))
         db.commit()
 
-    # 4. Frota de Veículos
-    if db.query(Vehicle).count() == 0:
-        logger.info("Populando frota oficial de veículos...")
-        for v in DEFAULT_VEHICLES:
+    # 4. Frota de Veículos (2 Caminhões Médios e 2 Caminhões Grandes)
+    target_vehicle_ids = {v["id"] for v in DEFAULT_VEHICLES}
+    # Remove veículos descontinuados (ex: moto titan)
+    for old_v in db.query(Vehicle).filter(Vehicle.id.notin_(target_vehicle_ids)).all():
+        logger.info(f"Removendo veículo descontinuado da frota: {old_v.id}")
+        db.delete(old_v)
+    db.commit()
+
+    for v in DEFAULT_VEHICLES:
+        existing = db.query(Vehicle).filter(Vehicle.id == v["id"]).first()
+        if not existing:
             db.add(Vehicle(
                 id=v["id"],
                 name=v["name"],
@@ -90,7 +97,17 @@ def init_db(db: Session) -> None:
                 operates_intermunicipal=v["operates_intermunicipal"],
                 active=v["active"],
             ))
-        db.commit()
+        else:
+            existing.name = v["name"]
+            existing.plate = v["plate"]
+            existing.capacity_kg = v["capacity_kg"]
+            existing.useful_volume_m3 = v["useful_volume_m3"]
+            existing.useful_length_m = v["useful_length_m"]
+            existing.allows_long_items = v["allows_long_items"]
+            existing.restricted_to_crateus = v["restricted_to_crateus"]
+            existing.operates_intermunicipal = v["operates_intermunicipal"]
+            existing.active = v["active"]
+    db.commit()
 
     # 5. Perfis de Otimização Multicritério
     if db.query(OptimizationProfile).count() == 0:

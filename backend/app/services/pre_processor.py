@@ -63,9 +63,9 @@ def validate_vehicle_territorial_compatibility(vehicle_dict: Dict[str, Any], cit
     """Valida se o veículo possui autorização operacional para trafegar nas localidades da carga.
 
     Regra de negócio:
-    - Veículos com restricted_to_crateus = True (Kia Bongo, Hyundai HR, Titan 160)
+    - Veículos médios com restricted_to_crateus = True (Kia Bongo e Hyundai HR)
       só podem atender Crateús e seus distritos.
-    - Para destinos em outras cidades autônomas (intermunicipal), exige-se caminhão maior (Accelo 815).
+    - Para destinos em outras cidades autônomas (intermunicipal), exige-se caminhão grande (Mercedes-Benz Accelo 815).
     """
     is_restricted = vehicle_dict.get("restricted_to_crateus", False)
     if not is_restricted:

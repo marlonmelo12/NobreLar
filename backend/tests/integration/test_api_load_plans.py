@@ -27,9 +27,10 @@ def test_api_list_vehicles_and_four_fleet():
 
     ids = [v["id"] for v in vehicles]
     assert "accelo-815-01" in ids
+    assert "accelo-815-02" in ids
     assert "kia-bongo-01" in ids
     assert "hyundai-hr-01" in ids
-    assert "titan-160-01" in ids
+    assert "titan-160-01" not in ids
 
     # Validação do Accelo com 18.5 m³ (ADR-0010)
     accelo = next(v for v in vehicles if v["id"] == "accelo-815-01")

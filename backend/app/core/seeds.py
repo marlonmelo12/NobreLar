@@ -9,12 +9,24 @@ from typing import List, Dict, Any
 from app.core.constants import CITY_TO_AXIS_MAP
 from app.core.geo_constants import REGION_COORDINATES_CACHE
 
-# Frota Oficial Parametrizada da Nobre Lar
+# Frota Oficial Parametrizada da Nobre Lar: 2 Caminhões Grandes e 2 Caminhões Médios
 DEFAULT_VEHICLES: List[Dict[str, Any]] = [
     {
         "id": "accelo-815-01",
-        "name": "Mercedes-Benz Accelo 815 (3/4)",
-        "plate": "NBL-8150",
+        "name": "Mercedes-Benz Accelo 815 (Caminhão Grande 01)",
+        "plate": "NBL-8151",
+        "capacity_kg": 4800.0,
+        "useful_volume_m3": 18.50,      # Cubagem útil operacional com estivagem (ADR-0010)
+        "useful_length_m": 5.50,
+        "allows_long_items": True,       # Comporta tubos e treliças de 6m
+        "restricted_to_crateus": False,  # Intermunicipal: opera em todos os eixos rodoviários
+        "operates_intermunicipal": True,
+        "active": True,
+    },
+    {
+        "id": "accelo-815-02",
+        "name": "Mercedes-Benz Accelo 815 (Caminhão Grande 02)",
+        "plate": "NBL-8152",
         "capacity_kg": 4800.0,
         "useful_volume_m3": 18.50,      # Cubagem útil operacional com estivagem (ADR-0010)
         "useful_length_m": 5.50,
@@ -25,7 +37,7 @@ DEFAULT_VEHICLES: List[Dict[str, Any]] = [
     },
     {
         "id": "kia-bongo-01",
-        "name": "Kia Bongo K2500",
+        "name": "Kia Bongo K2500 (Caminhão Médio 01)",
         "plate": "NBL-2500",
         "capacity_kg": 1700.0,
         "useful_volume_m3": 6.50,
@@ -37,25 +49,13 @@ DEFAULT_VEHICLES: List[Dict[str, Any]] = [
     },
     {
         "id": "hyundai-hr-01",
-        "name": "Hyundai HR (HRV)",
+        "name": "Hyundai HR (Caminhão Médio 02)",
         "plate": "NBL-2600",
         "capacity_kg": 1700.0,
         "useful_volume_m3": 6.50,
         "useful_length_m": 3.10,
         "allows_long_items": False,      # Não comporta peças lineares de 6m
         "restricted_to_crateus": True,   # Restrito ao município de Crateús e seus distritos
-        "operates_intermunicipal": False,
-        "active": True,
-    },
-    {
-        "id": "titan-160-01",
-        "name": "Honda Titan 160 Cargo",
-        "plate": "NBL-1601",
-        "capacity_kg": 300.0,
-        "useful_volume_m3": 0.38,
-        "useful_length_m": 0.80,
-        "allows_long_items": False,
-        "restricted_to_crateus": True,   # Entregas rápidas urbanas em Crateús
         "operates_intermunicipal": False,
         "active": True,
     },
