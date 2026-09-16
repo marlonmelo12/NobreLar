@@ -198,3 +198,29 @@ export interface DecoupledDispatchResponse {
   roteiros_entrega: RoteiroEntregaViagem[];
   descartes_limpeza: DiscardedCleaningLog[];
 }
+
+export interface VehicleDto {
+  id: string;
+  name: string;
+  plate: string;
+  capacity_kg: number;
+  useful_volume_m3: number;
+  useful_length_m: number;
+  allows_long_items: boolean;
+  restricted_to_crateus: boolean;
+  active: boolean;
+}
+
+export interface AxisProfileDto {
+  axis_id: string;
+  axis_name: string;
+  total_orders: number;
+  total_weight_kg: number;
+  total_volume_m3: number;
+  total_value: number;
+  density_kg_m3: number;
+  vehicle_ref_density_kg_m3: number;
+  predominant_limiting_resource: 'PESO' | 'VOLUME';
+  business_recommendation: string;
+}
+

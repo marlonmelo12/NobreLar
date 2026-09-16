@@ -1,28 +1,32 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Header } from './components/layout/Header';
-import { TabNavigation, ActiveTabType } from './components/layout/TabNavigation';
-import { TruckLoadView } from './components/loads/TruckLoadView';
-import { DeliveryRouteView } from './components/routes/DeliveryRouteView';
-import { DiscardedOrdersView } from './components/cleaning/DiscardedOrdersView';
-import { RawOrdersView } from './components/raw/RawOrdersView';
-import { ModalJsonImport } from './components/common/ModalJsonImport';
+import { Sidebar, NavItemKey } from './components/layout/Sidebar';
+import { DashboardView } from './components/views/DashboardView';
+import { PreparationView } from './components/views/PreparationView';
+import { AxesView } from './components/views/AxesView';
+import { VehiclesView } from './components/views/VehiclesView';
+import { HistoryView } from './components/views/HistoryView';
 import { api } from './services/api';
-import {
-  DecoupledOrderInput,
-  DecoupledDispatchResponse,
-} from './types/dispatch';
-import { AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { DecoupledOrderInput, DecoupledDispatchResponse } from './types/dispatch';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<ActiveTabType>('loads');
+  const [activeNav, setActiveNav] = useState<NavItemKey>('dashboard');
   const [orders, setOrders] = useState<DecoupledOrderInput[]>([]);
   const [dispatchResult, setDispatchResult] = useState<DecoupledDispatchResponse | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<'Equilibrado' | 'Priorizar Urgentes' | 'Minimizar Veículos'>('Equilibrado');
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [lastExecutionTime, setLastExecutionTime] = useState<string | null>(null);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  // Formata data e hora para o padrão do Figma: HH:mm DD/MM/AAAA
+  const getFormattedNow = () => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  };
 
   // 1. Checa a saúde da API backend
   const checkHealth = useCallback(async () => {
@@ -34,190 +38,148 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // 2. Executa o processamento do lote (POST /orders)
-  const handleProcessOrders = useCallback(
-    async (batchOrders: DecoupledOrderInput[], profile = selectedProfile) => {
-      if (!batchOrders || batchOrders.length === 0) {
-        setErrorMessage('Nenhum pedido no lote para processar.');
-        return;
-      }
-
-      setIsProcessing(true);
-      setErrorMessage(null);
-      setSuccessMessage(null);
-
-      try {
-        const result = await api.processOrders(batchOrders, profile);
-        setDispatchResult(result);
-        setSuccessMessage(
-          `Otimização concluída com sucesso! ${result.resumo.total_trips_generated} viagens geradas com ${result.resumo.total_allocated_orders} pedidos alocados.`
-        );
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Falha ao processar despacho de pedidos.';
-        setErrorMessage(msg);
-      } finally {
-        setIsProcessing(false);
-      }
-    },
-    [selectedProfile]
-  );
-
-  // 3. Carrega o Mock Oficial da Nobre Lar (30 pedidos) e processa automaticamente
-  const handleLoadMock = useCallback(async () => {
+  // 2. Executa a otimização de despacho (CP-SAT multi-viagens + TSP)
+  const handleExecuteDispatch = useCallback(async () => {
     setIsProcessing(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
+    setNotification(null);
 
     try {
-      const mockOrders = await api.fetchMockOrders();
-      setOrders(mockOrders);
-      await handleProcessOrders(mockOrders);
+      let ordersToProcess = orders;
+      if (!ordersToProcess || ordersToProcess.length === 0) {
+        ordersToProcess = await api.fetchMockOrders();
+        setOrders(ordersToProcess);
+      }
+
+      const result = await api.processOrders(ordersToProcess, 'Equilibrado', 20.0);
+      setDispatchResult(result);
+      const timeStr = getFormattedNow();
+      setLastExecutionTime(timeStr);
+      setNotification({
+        type: 'success',
+        message: `Otimização concluída com sucesso! ${result.resumo.total_trips_generated} viagens geradas com ${result.resumo.total_allocated_orders} pedidos alocados.`,
+      });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Falha ao carregar mock oficial de pedidos.';
-      setErrorMessage(msg);
+      const msg = err instanceof Error ? err.message : 'Falha ao processar despacho de pedidos.';
+      setNotification({ type: 'error', message: msg });
+    } finally {
       setIsProcessing(false);
     }
-  }, [handleProcessOrders]);
+  }, [orders]);
 
-  // Inicialização no Mount
+  // 3. Carrega o mock oficial de 30 pedidos
+  const handleLoadMock = useCallback(async () => {
+    setIsProcessing(true);
+    setNotification(null);
+
+    try {
+      const mock = await api.fetchMockOrders();
+      setOrders(mock);
+      setNotification({
+        type: 'success',
+        message: `Mock oficial carregado com sucesso (${mock.length} pedidos)!`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao carregar pedidos mock.';
+      setNotification({ type: 'error', message: msg });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  // 4. Inicialização no Mount
   useEffect(() => {
     checkHealth();
-    handleLoadMock();
-  }, [checkHealth, handleLoadMock]);
-
-  // Importação de lote customizado pelo usuário
-  const handleCustomImport = (importedOrders: DecoupledOrderInput[]) => {
-    setOrders(importedOrders);
-    handleProcessOrders(importedOrders);
-  };
+    // Carrega mock e tenta recuperar resultado em memória
+    api
+      .fetchMockOrders()
+      .then((m) => {
+        setOrders(m);
+        return api.fetchConsolidatedSummary();
+      })
+      .then((res) => {
+        if (res && res.status === 'SUCESSO') {
+          setDispatchResult(res);
+          setLastExecutionTime(getFormattedNow());
+        }
+      })
+      .catch(() => {
+        // Fallback inicial
+      });
+  }, [checkHealth]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      
-      {/* Header Superior com Identidade Nobre Lar #fdc700 */}
-      <Header
-        onLoadMock={handleLoadMock}
-        onOpenImportModal={() => setIsImportModalOpen(true)}
-        onProcessDispatch={() => handleProcessOrders(orders)}
-        isProcessing={isProcessing}
-        ordersCount={orders.length}
-        selectedProfile={selectedProfile}
-        onSelectProfile={(p) => {
-          setSelectedProfile(p);
-          if (orders.length > 0) {
-            handleProcessOrders(orders, p);
-          }
-        }}
+    <div className="flex h-screen bg-[#FDFDFD] font-sans overflow-hidden text-slate-800">
+      {/* Menu Lateral Esquerdo conforme Protótipo Figma */}
+      <Sidebar
+        activeItem={activeNav}
+        onSelect={setActiveNav}
         backendOnline={backendOnline}
       />
 
-      {/* Navegação por Abas */}
-      <TabNavigation
-        activeTab={activeTab}
-        onChangeTab={setActiveTab}
-        tripsCount={dispatchResult?.cargas_caminhao.length || 0}
-        routesCount={dispatchResult?.roteiros_entrega.length || 0}
-        discardedCount={dispatchResult?.descartes_limpeza.length || 0}
-        rawCount={orders.length}
-      />
-
       {/* Área Principal de Conteúdo */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        
-        {/* Banner de Erro */}
-        {errorMessage && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-between text-xs text-red-800 animate-in fade-in shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-              <span className="font-semibold">{errorMessage}</span>
+      <main className="flex-1 flex flex-col h-screen overflow-y-auto relative">
+        {/* Banner de Notificação Flutuante */}
+        {notification && (
+          <div
+            className={`mx-6 mt-4 p-3.5 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-all animate-fadeIn ${
+              notification.type === 'success'
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                : 'bg-rose-50 border-rose-300 text-rose-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {notification.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+              )}
+              <span>{notification.message}</span>
             </div>
+
             <button
-              onClick={() => setErrorMessage(null)}
-              className="text-red-600 hover:text-red-900 font-bold ml-4"
+              onClick={() => setNotification(null)}
+              className="text-slate-400 hover:text-slate-700 ml-4"
             >
-              Fechar
+              &times;
             </button>
           </div>
         )}
 
-        {/* Banner de Sucesso */}
-        {successMessage && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs text-emerald-900 animate-in fade-in shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span className="font-semibold">{successMessage}</span>
-            </div>
-            <button
-              onClick={() => setSuccessMessage(null)}
-              className="text-emerald-700 hover:text-emerald-950 font-bold ml-4"
-            >
-              Fechar
-            </button>
-          </div>
-        )}
+        {/* Renderização da Tela Ativa */}
+        <div className="flex-1">
+          {activeNav === 'dashboard' && (
+            <DashboardView
+              dispatchResult={dispatchResult}
+              totalOrdersCount={orders.length || 30}
+              lastExecutionTime={lastExecutionTime}
+              isProcessing={isProcessing}
+              onExecute={handleExecuteDispatch}
+            />
+          )}
 
-        {/* Indicador de Processamento em Andamento */}
-        {isProcessing && (
-          <div className="p-8 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col items-center justify-center text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-nobre-100 border border-nobre-400 text-nobre-900 flex items-center justify-center animate-spin">
-              <RefreshCw className="w-6 h-6 text-slate-900" />
-            </div>
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900">
-                Otimizando Despacho com CP-SAT e TSP...
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Calculando cubagem técnica, limites de carga aberta e menor tortuosidade de entrega.
-              </p>
-            </div>
-          </div>
-        )}
+          {activeNav === 'preparar' && (
+            <PreparationView
+              orders={orders}
+              dispatchResult={dispatchResult}
+              isProcessing={isProcessing}
+              onLoadMock={handleLoadMock}
+              onUploadCustomOrders={(newOrders) => setOrders(newOrders)}
+              onExecuteDispatch={handleExecuteDispatch}
+            />
+          )}
 
-        {/* Renderização Condicional das Telas */}
-        {!isProcessing && (
-          <>
-            {activeTab === 'loads' && (
-              <TruckLoadView cargas={dispatchResult?.cargas_caminhao || []} />
-            )}
+          {activeNav === 'eixos' && <AxesView />}
 
-            {activeTab === 'routes' && (
-              <DeliveryRouteView roteiros={dispatchResult?.roteiros_entrega || []} />
-            )}
+          {activeNav === 'veiculos' && <VehiclesView />}
 
-            {activeTab === 'cleaning' && (
-              <DiscardedOrdersView descartes={dispatchResult?.descartes_limpeza || []} />
-            )}
-
-            {activeTab === 'raw' && (
-              <RawOrdersView orders={orders} />
-            )}
-          </>
-        )}
-
-      </main>
-
-      {/* Footer Institucional */}
-      <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-nobre-500" />
-            <span className="font-bold text-slate-800">NobreLOG IA</span>
-            <span>— Sistema Integrado de Expedição & Roteirização</span>
-          </div>
-          <div className="text-[11px] text-slate-400">
-            Nobre Lar Comércio de Materiais de Construção • Crateús - CE
-          </div>
+          {activeNav === 'historico' && (
+            <HistoryView
+              dispatchResult={dispatchResult}
+              lastExecutionTime={lastExecutionTime}
+            />
+          )}
         </div>
-      </footer>
-
-      {/* Modal de Importação JSON */}
-      <ModalJsonImport
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onImport={handleCustomImport}
-        currentOrdersCount={orders.length}
-      />
-
+      </main>
     </div>
   );
 };

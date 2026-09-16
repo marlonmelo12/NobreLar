@@ -110,6 +110,20 @@ class ApiService {
   }
 
   /**
+   * Retorna a lista de veículos da frota ativa.
+   */
+  async fetchVehicles(): Promise<any[]> {
+    return this.request<any[]>('/api/v1/vehicles');
+  }
+
+  /**
+   * Retorna o perfil de densidade por eixo rodoviário.
+   */
+  async fetchAxisProfiles(): Promise<any[]> {
+    return this.request<any[]>('/api/v1/analytics/axis-profile');
+  }
+
+  /**
    * Constrói a URL para download ou visualização do PDF do Mapa de Carregamento.
    */
   getLoadingSheetPdfUrl(tripId: string): string {
@@ -125,3 +139,4 @@ class ApiService {
 }
 
 export const api = new ApiService();
+
