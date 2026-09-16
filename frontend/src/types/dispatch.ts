@@ -191,12 +191,63 @@ export interface DispatchSummary {
   total_allocated_volume_m3: number;
 }
 
+export interface PedidoNaoAlocadoItem {
+  pedido: string;
+  external_id: string;
+  cliente: string | null;
+  cidade: string;
+  eixo_id?: string | null;
+  endereco?: string | null;
+  situacao: string;
+  peso_total_kg: number;
+  volume_total_m3: number;
+  valor_total: number;
+  urgente: boolean;
+  motivo: string;
+  itens: ItemDrillDown[];
+}
+
 export interface DecoupledDispatchResponse {
   status: string;
   resumo: DispatchSummary;
   cargas_caminhao: CargaCaminhaoViagem[];
   roteiros_entrega: RoteiroEntregaViagem[];
   descartes_limpeza: DiscardedCleaningLog[];
+  pedidos_nao_alocados: PedidoNaoAlocadoItem[];
+}
+
+export type OrderAllocationStatus = 'ALOCADO' | 'NAO_ALOCADO' | 'DESCARTADO' | 'PENDENTE';
+
+export interface UnifiedOrderItem {
+  id: string;
+  external_id: string;
+  cliente: string | null;
+  cidade: string | null;
+  endereco?: string | null;
+  situacao: string;
+  peso_kg: number;
+  volume_m3: number;
+  valor: number;
+  status: OrderAllocationStatus;
+  status_label: string;
+  viagem_id?: string | null;
+  viagem_titulo?: string | null;
+  veiculo_nome?: string | null;
+  veiculo_placa?: string | null;
+  eixo_nome?: string | null;
+  ordem_carregamento?: number | null;
+  ordem_entrega?: number | null;
+  motivo?: string | null;
+  itens: ItemDrillDown[];
+}
+
+export interface AllOrdersResponse {
+  status: string;
+  total: number;
+  total_alocados: number;
+  total_nao_alocados: number;
+  total_descartados: number;
+  pedidos: UnifiedOrderItem[];
 }
 
 export interface VehicleDto {

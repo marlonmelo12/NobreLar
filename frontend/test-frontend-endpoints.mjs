@@ -193,8 +193,23 @@ async function runTests() {
     }
   });
 
-  // 9. POST Limpeza de Estado
-  await test('9. POST /api/v1/dispatch/clear (Limpeza do Estado de Teste)', async () => {
+  // 9. GET Listagem Geral de Pedidos (Alocados, Não Alocados e Descartados)
+  await test('9. GET /api/v1/dispatch/orders (Listagem Geral de Pedidos)', async () => {
+    const res = await fetch(`${API_BASE}/api/v1/dispatch/orders`);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    if (data.status !== 'SUCESSO') throw new Error(`Status inesperado: ${data.status}`);
+    if (!Array.isArray(data.pedidos)) throw new Error('Esperado lista em data.pedidos');
+    if (data.total < 4) throw new Error(`Esperado pelo menos 4 pedidos no lote de teste, retornado ${data.total}`);
+    
+    const alocado = data.pedidos.find((p) => p.status === 'ALOCADO');
+    if (!alocado || !alocado.viagem_titulo) {
+      throw new Error('Pedido alocado deve conter viagem_titulo');
+    }
+  });
+
+  // 10. POST Limpeza de Estado
+  await test('10. POST /api/v1/dispatch/clear (Limpeza do Estado de Teste)', async () => {
     const res = await fetch(`${API_BASE}/api/v1/dispatch/clear`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

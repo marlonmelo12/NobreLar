@@ -16,7 +16,9 @@ from app.domain.schemas.decoupled_schema import (
     DecoupledOrderInput,
     TruckLoadResponse,
     DeliveryRouteResponse,
-    DecoupledDispatchResponse
+    DecoupledDispatchResponse,
+    AllOrdersResponse,
+    UnifiedOrderItem
 )
 
 logger = structlog.get_logger()
@@ -388,7 +390,126 @@ def get_orders_decoupled_summary(
         },
         "cargas_caminhao": [],
         "roteiros_entrega": [],
-        "descartes_limpeza": []
+        "descartes_limpeza": [],
+        "pedidos_nao_alocados": []
+    }
+
+
+@router.get(
+    "/orders",
+    summary="Lista todos os pedidos (alocados, não alocados e descartados) com detalhes e status",
+    response_model=AllOrdersResponse
+)
+def get_all_orders_summary():
+    """Retorna a listagem unificada de todos os pedidos processados no lote atual:
+    - Pedidos Alocados (em quais viagens, veículos e paradas foram alocados)
+    - Pedidos Não Alocados (motivo da não alocação, volume, peso, valor)
+    - Pedidos Descartados na Higienização (regras de expurgo como balcão ou cancelamento)
+    """
+    res = dispatch_state.last_result
+    if not res:
+        return {
+            "status": "SUCESSO",
+            "total": 0,
+            "total_alocados": 0,
+            "total_nao_alocados": 0,
+            "total_descartados": 0,
+            "pedidos": []
+        }
+
+    unified_orders: List[Dict[str, Any]] = []
+
+    # 1. Pedidos Alocados (a partir de cargas_caminhao)
+    cargas = res.get("cargas_caminhao", [])
+    for trip in cargas:
+        v_info = trip.get("veiculo", {})
+        for ord_item in trip.get("pedidos_carroceria", []):
+            unified_orders.append({
+                "id": str(ord_item.get("pedido")),
+                "external_id": str(ord_item.get("external_id", ord_item.get("pedido"))),
+                "cliente": ord_item.get("cliente"),
+                "cidade": ord_item.get("cidade"),
+                "endereco": ord_item.get("endereco"),
+                "situacao": ord_item.get("situacao", "NORMAL"),
+                "peso_kg": round(float(ord_item.get("peso_total_kg", 0.0)), 2),
+                "volume_m3": round(float(ord_item.get("volume_total_m3", 0.0)), 4),
+                "valor": round(float(ord_item.get("valor_total", 0.0)), 2),
+                "status": "ALOCADO",
+                "status_label": "Alocado",
+                "viagem_id": trip.get("viagem_id"),
+                "viagem_titulo": trip.get("titulo"),
+                "veiculo_nome": v_info.get("nome"),
+                "veiculo_placa": v_info.get("placa"),
+                "eixo_nome": trip.get("eixo_nome"),
+                "ordem_carregamento": ord_item.get("ordem_carregamento"),
+                "ordem_entrega": ord_item.get("ordem_entrega_prevista"),
+                "motivo": None,
+                "itens": ord_item.get("itens", [])
+            })
+
+    # 2. Pedidos Não Alocados
+    nao_alocados = res.get("pedidos_nao_alocados", [])
+    for ord_item in nao_alocados:
+        unified_orders.append({
+            "id": str(ord_item.get("pedido")),
+            "external_id": str(ord_item.get("external_id", ord_item.get("pedido"))),
+            "cliente": ord_item.get("cliente"),
+            "cidade": ord_item.get("cidade"),
+            "endereco": ord_item.get("endereco"),
+            "situacao": ord_item.get("situacao", "NORMAL"),
+            "peso_kg": round(float(ord_item.get("peso_total_kg", 0.0)), 2),
+            "volume_m3": round(float(ord_item.get("volume_total_m3", 0.0)), 4),
+            "valor": round(float(ord_item.get("valor_total", 0.0)), 2),
+            "status": "NAO_ALOCADO",
+            "status_label": "Não Alocado",
+            "viagem_id": None,
+            "viagem_titulo": None,
+            "veiculo_nome": None,
+            "veiculo_placa": None,
+            "eixo_nome": ord_item.get("eixo_id"),
+            "ordem_carregamento": None,
+            "ordem_entrega": None,
+            "motivo": ord_item.get("motivo", "Capacidade ou disponibilidade de frota excedida"),
+            "itens": ord_item.get("itens", [])
+        })
+
+    # 3. Pedidos Descartados na Higienização
+    descartes = res.get("descartes_limpeza", [])
+    for disc in descartes:
+        unified_orders.append({
+            "id": str(disc.get("pedido")),
+            "external_id": str(disc.get("pedido")),
+            "cliente": None,
+            "cidade": None,
+            "endereco": None,
+            "situacao": disc.get("regra", "DESCARTE"),
+            "peso_kg": 0.0,
+            "volume_m3": 0.0,
+            "valor": 0.0,
+            "status": "DESCARTADO",
+            "status_label": "Descartado",
+            "viagem_id": None,
+            "viagem_titulo": None,
+            "veiculo_nome": None,
+            "veiculo_placa": None,
+            "eixo_nome": None,
+            "ordem_carregamento": None,
+            "ordem_entrega": None,
+            "motivo": disc.get("motivo"),
+            "itens": []
+        })
+
+    total_alocados = len([o for o in unified_orders if o["status"] == "ALOCADO"])
+    total_nao_alocados = len([o for o in unified_orders if o["status"] == "NAO_ALOCADO"])
+    total_descartados = len([o for o in unified_orders if o["status"] == "DESCARTADO"])
+
+    return {
+        "status": "SUCESSO",
+        "total": len(unified_orders),
+        "total_alocados": total_alocados,
+        "total_nao_alocados": total_nao_alocados,
+        "total_descartados": total_descartados,
+        "pedidos": unified_orders
     }
 
 

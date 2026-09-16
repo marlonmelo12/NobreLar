@@ -8,6 +8,7 @@ import {
   TruckLoadResponse,
   DeliveryRouteResponse,
   DecoupledOrderInput,
+  AllOrdersResponse,
 } from '../types/dispatch';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8000';
@@ -99,6 +100,13 @@ class ApiService {
    */
   async fetchConsolidatedSummary(): Promise<DecoupledDispatchResponse> {
     return this.request<DecoupledDispatchResponse>('/api/v1/dispatch/process-orders');
+  }
+
+  /**
+   * Retorna a listagem unificada de todos os pedidos (alocados, não alocados e descartados).
+   */
+  async fetchAllOrders(): Promise<AllOrdersResponse> {
+    return this.request<AllOrdersResponse>('/api/v1/dispatch/orders');
   }
 
   /**

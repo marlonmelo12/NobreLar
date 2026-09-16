@@ -5,6 +5,7 @@ import { PreparationView } from './components/views/PreparationView';
 import { AxesView } from './components/views/AxesView';
 import { VehiclesView } from './components/views/VehiclesView';
 import { HistoryView } from './components/views/HistoryView';
+import { OrdersView } from './components/views/OrdersView';
 import { api } from './services/api';
 import { DecoupledOrderInput, DecoupledDispatchResponse } from './types/dispatch';
 
@@ -104,6 +105,15 @@ export const App: React.FC = () => {
               onUploadCustomOrders={(newOrders) => setOrders(newOrders)}
               onExecuteDispatch={handleExecuteDispatch}
               onClear={handleClearDispatch}
+              onNavigateToOrders={() => setActiveNav('pedidos')}
+            />
+          )}
+
+          {activeNav === 'pedidos' && (
+            <OrdersView
+              dispatchResult={dispatchResult}
+              uploadedOrders={orders}
+              onNavigateToPrepare={() => setActiveNav('preparar')}
             />
           )}
 

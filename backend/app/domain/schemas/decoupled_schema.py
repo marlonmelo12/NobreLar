@@ -172,10 +172,64 @@ class DeliveryRouteResponse(BaseModel):
 
 
 # --- VISÃO 3: Resposta Consolidada Completa ---
+class PedidoNaoAlocadoItem(BaseModel):
+    """Pedido validado porém não alocado em nenhuma viagem da janela atual."""
+    pedido: str
+    external_id: str
+    cliente: Optional[str] = None
+    cidade: str
+    eixo_id: Optional[str] = None
+    endereco: Optional[str] = None
+    situacao: str = "NORMAL"
+    peso_total_kg: float = 0.0
+    volume_total_m3: float = 0.0
+    valor_total: float = 0.0
+    urgente: bool = False
+    motivo: str = "Capacidade ou disponibilidade de frota excedida"
+    itens: List[Dict[str, Any]] = []
+
+
 class DecoupledDispatchResponse(BaseModel):
-    """Resposta consolidada que fornece ambas as visões (Carroceria e Roteiro TSP)."""
+    """Resposta consolidada que fornece ambas as visões (Carroceria e Roteiro TSP) mais não alocados."""
     status: str
     resumo: Dict[str, Any]
     cargas_caminhao: List[TruckLoadTrip]
     roteiros_entrega: List[DeliveryRouteTrip]
     descartes_limpeza: List[Dict[str, Any]]
+    pedidos_nao_alocados: List[PedidoNaoAlocadoItem] = []
+
+
+# --- VISÃO 4: Listagem Unificada de Todos os Pedidos ---
+class UnifiedOrderItem(BaseModel):
+    """Representação unificada de um pedido para a tela geral de pedidos."""
+    id: str
+    external_id: str
+    cliente: Optional[str] = None
+    cidade: Optional[str] = None
+    endereco: Optional[str] = None
+    situacao: str = "NORMAL"
+    peso_kg: float = 0.0
+    volume_m3: float = 0.0
+    valor: float = 0.0
+    status: str = "PENDENTE"  # ALOCADO | NAO_ALOCADO | DESCARTADO | PENDENTE
+    status_label: str = "Pendente"
+    viagem_id: Optional[str] = None
+    viagem_titulo: Optional[str] = None
+    veiculo_nome: Optional[str] = None
+    veiculo_placa: Optional[str] = None
+    eixo_nome: Optional[str] = None
+    ordem_carregamento: Optional[int] = None
+    ordem_entrega: Optional[int] = None
+    motivo: Optional[str] = None
+    itens: List[Dict[str, Any]] = []
+
+
+class AllOrdersResponse(BaseModel):
+    """Resposta com todos os pedidos do sistema (alocados, não alocados e descartados)."""
+    status: str
+    total: int
+    total_alocados: int
+    total_nao_alocados: int
+    total_descartados: int
+    pedidos: List[UnifiedOrderItem] = []
+

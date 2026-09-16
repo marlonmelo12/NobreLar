@@ -86,13 +86,15 @@ class DailyDispatchPipeline:
         # Formata especificamente para os contratos desacoplados de saída
         cargas = self.format_truck_load_response(raw_result["trips"])
         roteiros = self.format_delivery_route_response(raw_result["trips"])
+        pedidos_nao_alocados = self.format_unallocated_orders_response(raw_result.get("unallocated_orders", []))
 
         return {
             "status": raw_result["status"],
             "resumo": raw_result["summary"],
             "cargas_caminhao": cargas,
             "roteiros_entrega": roteiros,
-            "descartes_limpeza": raw_result["discarded_cleaning_logs"]
+            "descartes_limpeza": raw_result["discarded_cleaning_logs"],
+            "pedidos_nao_alocados": pedidos_nao_alocados
         }
 
     def process_orders_collection(
@@ -145,6 +147,8 @@ class DailyDispatchPipeline:
 
                 if not assigned_vehicle:
                     logger.warning(f"Sem veículo compatível para o eixo {axis_id} na viagem {trip_idx}")
+                    for o in pending_pool:
+                        o["motivo_nao_alocacao"] = f"Sem veículo compatível disponível na frota para o eixo {axis_id}."
                     unallocated_orders.extend(pending_pool)
                     break
 
@@ -167,6 +171,8 @@ class DailyDispatchPipeline:
                         f"Nenhum pedido alocado para o eixo {axis_id} na viagem {trip_idx}. "
                         f"Pedidos restantes: {len(pending_pool)}"
                     )
+                    for o in pending_pool:
+                        o["motivo_nao_alocacao"] = f"Capacidade volumétrica ou de peso do veículo {assigned_vehicle['name']} excedida."
                     unallocated_orders.extend(pending_pool)
                     break
 
@@ -533,6 +539,27 @@ class DailyDispatchPipeline:
                 "total_a_receber_rota": round(total_receber, 2),
                 "distancia_estimada_km": t.get("estimated_tortuosity_distance_km", 0.0),
                 "paradas": paradas
+            })
+        return formatted
+
+    def format_unallocated_orders_response(self, unallocated: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Formata pedidos não alocados com motivo operacional e drill-down de itens."""
+        formatted: List[Dict[str, Any]] = []
+        for it in unallocated:
+            formatted.append({
+                "pedido": str(it.get("id")),
+                "external_id": str(it.get("external_id", it.get("id"))),
+                "cliente": it.get("customer"),
+                "cidade": it.get("city_name") or "NÃO INFORMADA",
+                "eixo_id": it.get("axis_id"),
+                "endereco": it.get("formatted_address") or it.get("address_line") or it.get("city_name"),
+                "situacao": it.get("situacao", "NORMAL"),
+                "peso_total_kg": round(float(it.get("total_weight_kg", it.get("weight_kg", 0.0))), 2),
+                "volume_total_m3": round(float(it.get("total_volume_m3", it.get("volume_m3", 0.0))), 4),
+                "valor_total": round(float(it.get("total_value", it.get("value", 0.0))), 2),
+                "urgente": bool(it.get("is_mandatory", False)),
+                "motivo": str(it.get("motivo_nao_alocacao", "Capacidade ou disponibilidade de frota excedida")),
+                "itens": it.get("items", [])
             })
         return formatted
 
