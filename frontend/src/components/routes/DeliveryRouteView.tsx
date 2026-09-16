@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { RoteiroEntregaViagem } from '../../types/dispatch';
 import { DeliveryStopCard } from './DeliveryStopCard';
-import { MapPin, Navigation, DollarSign, CreditCard, FileDown, Route } from 'lucide-react';
+import { MapPin, Navigation, DollarSign, FileDown, Route, CheckCircle2, ExternalLink } from 'lucide-react';
 import { api } from '../../services/api';
 
 interface DeliveryRouteViewProps {
@@ -165,22 +165,16 @@ export const DeliveryRouteView: React.FC<DeliveryRouteViewProps> = ({ roteiros }
             </div>
           </div>
 
-          <div className={`rounded-xl p-3.5 border ${
-            currentRoute.total_a_receber_rota > 0
-              ? 'bg-red-50 border-red-200 text-red-900'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-          }`}>
-            <div className="flex items-center gap-2 text-xs mb-1 font-semibold">
-              <CreditCard className="w-4 h-4" />
-              <span>Total a Receber</span>
+          <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200">
+            <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Otimização TSP</span>
             </div>
-            <div className="text-base font-extrabold font-mono">
-              R$ {currentRoute.total_a_receber_rota.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            <div className="text-base font-extrabold text-slate-900 font-mono">
+              Sequência Ótima
             </div>
-            <div className="text-[11px] mt-0.5 opacity-80">
-              {currentRoute.total_a_receber_rota > 0
-                ? 'Cobrança mandante na rota'
-                : '100% dos pedidos quitados'}
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              Menor trajeto rodoviário
             </div>
           </div>
 
@@ -240,14 +234,23 @@ export const DeliveryRouteView: React.FC<DeliveryRouteViewProps> = ({ roteiros }
                   Partida: 0.0 km
                 </span>
               </div>
-              <div className="text-xs text-slate-600 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span>{currentRoute.ponto_origem?.endereco || 'Avenida Doutor Edilberto Frota, 2000, Planalto, Crateús - CE'}</span>
+              <div className="text-xs text-slate-600 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>{currentRoute.ponto_origem?.endereco || 'Avenida Doutor Edilberto Frota, 2000, Planalto, Crateús - CE'}</span>
+                </div>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentRoute.ponto_origem?.endereco || 'Avenida Doutor Edilberto Frota, 2000, Planalto, Crateús - CE')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-medium text-xs ml-auto"
+                >
+                  <span>Abrir no Mapa</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
-              <div className="flex items-center gap-3 pt-1 border-t border-slate-200/60 text-[11px] font-mono text-slate-500 flex-wrap">
-                <span>📍 Lat: -5.1784 | Lon: -40.6775</span>
-                <span className="text-slate-400">•</span>
-                <span className="text-slate-600 font-sans">{currentRoute.ponto_origem?.acao || 'Carregamento das mercadorias na doca de expedição'}</span>
+              <div className="pt-1 border-t border-slate-200/60 text-[11px] text-slate-600 font-sans">
+                {currentRoute.ponto_origem?.acao || 'Carregamento e conferência na doca de expedição'}
               </div>
             </div>
           </div>
@@ -280,20 +283,27 @@ export const DeliveryRouteView: React.FC<DeliveryRouteViewProps> = ({ roteiros }
                   Distância Total: {currentRoute.distancia_estimada_km.toFixed(1)} km
                 </span>
               </div>
-              <div className="text-xs text-slate-600 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                <span>{currentRoute.ponto_retorno?.endereco || 'Avenida Doutor Edilberto Frota, 2000, Planalto, Crateús - CE'}</span>
+              <div className="text-xs text-slate-600 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <span>{currentRoute.ponto_retorno?.endereco || 'Avenida Doutor Edilberto Frota, 2000, Planalto, Crateús - CE'}</span>
+                </div>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentRoute.ponto_retorno?.endereco || 'Avenida Doutor Edilberto Frota, 2000, Planalto, Crateús - CE')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-medium text-xs ml-auto"
+                >
+                  <span>Abrir no Mapa</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
-              <div className="flex items-center gap-3 pt-1 border-t border-slate-200/60 text-[11px] font-mono text-slate-500 flex-wrap">
-                <span>📍 Lat: -5.1784 | Lon: -40.6775</span>
+              <div className="flex items-center gap-3 pt-1 border-t border-slate-200/60 text-[11px] text-slate-600 font-sans flex-wrap">
                 {currentRoute.ponto_retorno?.distancia_trecho_km !== undefined && (
-                  <>
-                    <span className="text-slate-400">•</span>
-                    <span className="text-amber-700 font-bold">+{currentRoute.ponto_retorno.distancia_trecho_km.toFixed(1)} km do último cliente</span>
-                  </>
+                  <span className="text-amber-700 font-bold font-mono">+{currentRoute.ponto_retorno.distancia_trecho_km.toFixed(1)} km do último cliente</span>
                 )}
                 <span className="text-slate-400">•</span>
-                <span className="text-slate-600 font-sans">{currentRoute.ponto_retorno?.acao || 'Retorno ao Centro de Distribuição Nobre Lar e prestação de contas'}</span>
+                <span>{currentRoute.ponto_retorno?.acao || 'Retorno ao Centro de Distribuição Nobre Lar'}</span>
               </div>
             </div>
           </div>

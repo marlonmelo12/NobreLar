@@ -11,6 +11,7 @@ Implementa a orquestração ponta a ponta de um dia de faturamento:
 """
 
 from pathlib import Path
+import urllib.parse
 from typing import Dict, Any, List, Optional, Union, Tuple
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -201,6 +202,7 @@ class DailyDispatchPipeline:
                         leg_km = haversine_road_distance_km(curr_loc, order_loc)
                         accumulated_km += leg_km
                         curr_loc = order_loc
+                        order_addr = ord_obj.get("formatted_address") or ord_obj.get("address_line") or f"{ord_obj['city_name']}, CE"
                         order_points_meta[ord_obj["id"]] = {
                             "ponto_numero": seq_idx,
                             "delivery_order": seq_idx,
@@ -209,7 +211,7 @@ class DailyDispatchPipeline:
                             "latitude": order_loc[0],
                             "longitude": order_loc[1],
                             "coordenadas": {"lat": order_loc[0], "lon": order_loc[1]},
-                            "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={order_loc[0]},{order_loc[1]}"
+                            "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(order_addr))}"
                         }
 
                 return_leg_km = haversine_road_distance_km(curr_loc, (depot_lat, depot_lon))
@@ -217,6 +219,7 @@ class DailyDispatchPipeline:
                 if total_route_km == 0.0 and tsp_res.get("total_distance_km", 0.0) > 0.0:
                     total_route_km = tsp_res.get("total_distance_km", 0.0)
 
+                depot_addr_enc = urllib.parse.quote(DEPOT_COORDINATES["address"])
                 ponto_origem = {
                     "ponto_numero": 0,
                     "tipo_ponto": "ORIGEM",
@@ -228,8 +231,8 @@ class DailyDispatchPipeline:
                     "coordenadas": {"lat": depot_lat, "lon": depot_lon},
                     "distancia_trecho_km": 0.0,
                     "distancia_acumulada_km": 0.0,
-                    "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={depot_lat},{depot_lon}",
-                    "acao": "Carregamento e conferência na doca de expedição (LIFO)"
+                    "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={depot_addr_enc}",
+                    "acao": "Carregamento e conferência na doca de expedição"
                 }
 
                 ponto_retorno = {
@@ -243,8 +246,8 @@ class DailyDispatchPipeline:
                     "coordenadas": {"lat": depot_lat, "lon": depot_lon},
                     "distancia_trecho_km": return_leg_km,
                     "distancia_acumulada_km": total_route_km,
-                    "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={depot_lat},{depot_lon}",
-                    "acao": "Retorno ao CD Matriz Crateús e prestação de contas"
+                    "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={depot_addr_enc}",
+                    "acao": "Retorno ao CD Matriz Crateús"
                 }
 
                 total_allocated = len(allocated_orders)
@@ -596,13 +599,13 @@ class DailyDispatchPipeline:
                     "coordenadas": it.get("coordenadas", {"lat": it.get("latitude", 0.0), "lon": it.get("longitude", 0.0)}),
                     "distancia_trecho_km": it.get("distancia_trecho_km", 0.0),
                     "distancia_acumulada_km": it.get("distancia_acumulada_km", 0.0),
-                    "google_maps_url": it.get("google_maps_url") or f"https://www.google.com/maps/search/?api=1&query={it.get('latitude', 0.0)},{it.get('longitude', 0.0)}",
+                    "google_maps_url": it.get("google_maps_url") or f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(str(it.get('formatted_address') or it.get('address_line') or it.get('city_name') or 'Crateús - CE'))}",
                     "posicao_na_carroceria": None,
                     "situacao": it.get("situacao", "NORMAL"),
                     "valor_pedido": val,
                     "status_pagamento": "A RECEBER" if is_collect else "QUITADO",
                     "valor_a_receber": val if is_collect else 0.0,
-                    "alerta_cobranca": "Exigir comprovante PIX/Dinheiro antes do descarregamento!" if is_collect else None,
+                    "alerta_cobranca": f"ATENÇÃO: RECEBER R$ {val:.2f} NA ENTREGA (PAGAMENTO PENDENTE)" if is_collect else None,
                     "peso_total_kg": it.get("total_weight_kg", it.get("weight_kg", 0.0)),
                     "volume_total_m3": it.get("total_volume_m3", it.get("volume_m3", 0.0)),
                     "possui_itens_6m": False,

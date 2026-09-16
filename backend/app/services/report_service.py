@@ -218,58 +218,76 @@ LOADING_SHEET_HTML_TEMPLATE = """<!DOCTYPE html>
 {% endif %}
 
 <div style="margin-bottom: 6px; font-size: 8pt; color: #475569;">
-    <strong>Regra de Estivagem (LIFO):</strong> Os pedidos devem ser colocados no caminhão rigorosamente na ordem abaixo (o 1º a carregar fica no fundo do baú; o último fica próximo à porta para a 1ª entrega).
+    <strong>Sequência de Carregamento:</strong> Os pedidos devem ser conferidos e carregados no veículo na ordem abaixo.
 </div>
 
 <table class="orders-table">
     <thead>
         <tr>
-            <th style="width: 14%; text-align: center;">Ordem Doca (LIFO)</th>
-            <th style="width: 10%; text-align: center;">Descarga</th>
-            <th style="width: 14%;">Pedido</th>
-            <th style="width: 18%;">Cidade / Distrito</th>
-            <th style="width: 11%; text-align: right;">Peso (kg)</th>
-            <th style="width: 10%; text-align: right;">Volume (m³)</th>
-            <th style="width: 16%; text-align: center;">Alertas de Estiva</th>
-            <th style="width: 7%; text-align: center;">Conf.</th>
+            <th style="width: 12%; text-align: center;">Ordem Carga</th>
+            <th style="width: 12%; text-align: center;">Descarga</th>
+            <th style="width: 16%;">Pedido</th>
+            <th style="width: 28%;">Cidade / Cliente</th>
+            <th style="width: 12%; text-align: right;">Peso (kg)</th>
+            <th style="width: 12%; text-align: right;">Volume (m³)</th>
+            <th style="width: 8%; text-align: center;">Conf.</th>
         </tr>
     </thead>
     <tbody>
         {% for it in plan['loading_items'] %}
-        <tr>
+        <tr style="background-color: #f1f5f9; font-weight: bold;">
             <td style="text-align: center;">
                 {% if loop.first %}
                 <span class="badge-fundo">1º (FUNDO)</span>
                 {% elif loop.last %}
                 <span class="badge-porta">{{ it.loading_order }}º (PORTA)</span>
                 {% else %}
-                <span class="badge-lifo">{{ it.loading_order }}º Carregar</span>
+                <span class="badge-lifo">{{ it.loading_order }}º</span>
                 {% endif %}
             </td>
-            <td style="text-align: center; font-weight: bold;">{{ it.delivery_order }}ª Parada</td>
+            <td style="text-align: center;">{{ it.delivery_order }}ª Parada</td>
             <td><strong>{{ it.external_id or it.order_id or it.id }}</strong></td>
-            <td>{{ it.city_name }}</td>
+            <td>{{ it.city_name }}{% if it.customer or it.cliente %} — {{ it.customer or it.cliente }}{% endif %}</td>
             <td style="text-align: right;">{{ "%.1f"|format(it.weight_kg or it.total_weight_kg or 0.0) }}</td>
             <td style="text-align: right;">{{ "%.3f"|format(it.volume_m3 or it.total_volume_m3 or 0.0) }}</td>
-            <td style="text-align: center;">
-                {% if it.has_long_items %}
-                <span class="badge-long">6 METROS</span>
-                {% endif %}
-                {% if it.is_mandatory or it.is_urgent %}
-                <span class="badge-urgente">URGENTE</span>
-                {% endif %}
-                {% if not it.has_long_items and not (it.is_mandatory or it.is_urgent) %}
-                <span style="font-size: 7.5pt; color: #64748b;">Padrão</span>
-                {% endif %}
-            </td>
             <td class="check-box">[ &nbsp; ]</td>
         </tr>
+        {% if it.produtos %}
+        <tr>
+            <td colspan="7" style="padding: 3px 8px 6px 8px; background-color: #ffffff;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 7pt;">
+                    <thead>
+                        <tr style="background-color: #e2e8f0; color: #334155; font-size: 6.5pt;">
+                            <th style="padding: 2px 4px; text-align: left; width: 15%;">Código</th>
+                            <th style="padding: 2px 4px; text-align: left; width: 45%;">Descrição do Material</th>
+                            <th style="padding: 2px 4px; text-align: right; width: 15%;">Quantidade</th>
+                            <th style="padding: 2px 4px; text-align: right; width: 12%;">Peso Total</th>
+                            <th style="padding: 2px 4px; text-align: right; width: 13%;">Volume</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prod in it.produtos %}
+                        <tr style="border-bottom: 0.5px solid #f1f5f9;">
+                            <td style="padding: 2px 4px; font-family: monospace;">{{ prod.codigo or prod.sku }}</td>
+                            <td style="padding: 2px 4px;">{{ prod.descricao or prod.name }}</td>
+                            <td style="padding: 2px 4px; text-align: right; font-weight: bold;">
+                                {{ prod.quantidade }} {{ prod.unidade }}
+                            </td>
+                            <td style="padding: 2px 4px; text-align: right;">{{ "%.1f"|format(prod.peso_total_kg or 0.0) }} kg</td>
+                            <td style="padding: 2px 4px; text-align: right;">{{ "%.4f"|format(prod.volume_total_m3 or 0.0) }} m³</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+        {% endif %}
         {% endfor %}
-        <tr style="background-color: #f1f5f9; font-weight: bold;">
+        <tr style="background-color: #e2e8f0; font-weight: bold;">
             <td colspan="4" style="text-align: right;">TOTAIS DA CARGA:</td>
             <td style="text-align: right;">{{ "%.1f"|format(plan.total_weight_kg) }} kg</td>
             <td style="text-align: right;">{{ "%.3f"|format(plan.total_volume_m3) }} m³</td>
-            <td colspan="2" style="text-align: center;">{{ plan.total_orders }} Pedidos</td>
+            <td style="text-align: center;">{{ plan.total_orders }} Ped.</td>
         </tr>
     </tbody>
 </table>
@@ -456,61 +474,76 @@ DELIVERY_ROUTE_HTML_TEMPLATE = """<!DOCTYPE html>
             <td><span class="meta-label">Faturamento Carga:</span> R$ {{ "%.2f"|format(plan.total_value) }}</td>
         </tr>
         <tr>
-            <td><span class="meta-label">A Cobrar na Rota:</span> <strong style="color: #dc2626;">R$ {{ "%.2f"|format(plan.total_cash_to_collect or 0.0) }}</strong></td>
-            <td colspan="2"><span class="meta-label">Peso Total Carga:</span> {{ "%.1f"|format(plan.total_weight_kg) }} kg | Volume: {{ "%.3f"|format(plan.total_volume_m3) }} m³</td>
+            <td><span class="meta-label">Peso Total Carga:</span> {{ "%.1f"|format(plan.total_weight_kg) }} kg</td>
+            <td colspan="2"><span class="meta-label">Volume Total:</span> {{ "%.3f"|format(plan.total_volume_m3) }} m³</td>
         </tr>
     </table>
 </div>
 
-{% if plan.has_cash_collection %}
-<div class="alert-cash">
-    [AVISO] ATENÇÃO MOTORISTA: ESTA CARGA POSSUI PEDIDOS COM PAGAMENTO NO ATO DA ENTREGA (TOTAL A COBRAR: R$ {{ "%.2f"|format(plan.total_cash_to_collect) }}). EXIJA COMPROVANTE ANTES DO DESCARREGAMENTO!
-</div>
-{% endif %}
-
 <table class="route-table">
     <thead>
         <tr>
-            <th style="width: 9%; text-align: center;">Parada</th>
-            <th style="width: 14%;">Pedido / Ref.</th>
-            <th style="width: 18%;">Cidade / Distrito</th>
-            <th style="width: 28%;">Endereço de Entrega</th>
-            <th style="width: 13%; text-align: right;">Valor / Cobrança</th>
-            <th style="width: 18%;">Comprovante de Recebimento</th>
+            <th style="width: 8%; text-align: center;">Parada</th>
+            <th style="width: 14%;">Pedido</th>
+            <th style="width: 24%;">Cidade / Cliente</th>
+            <th style="width: 30%;">Endereço de Entrega</th>
+            <th style="width: 10%; text-align: right;">Valor</th>
+            <th style="width: 14%;">Comprovante</th>
         </tr>
     </thead>
     <tbody>
         {% for it in plan['delivery_items'] %}
-        <tr>
+        <tr style="background-color: #f1f5f9; font-weight: bold;">
             <td style="text-align: center;">
-                <span class="badge-parada">{{ it.delivery_order }}ª</span><br>
-                <span style="font-size: 6.5pt; color: #64748b;">(Doca {{ it.loading_order }}º)</span>
+                <span class="badge-parada">{{ it.delivery_order }}ª</span>
             </td>
             <td>
                 <strong>{{ it.external_id or it.order_id or it.id }}</strong><br>
-                <span style="font-size: 7pt; color: #64748b;">{{ "%.1f"|format(it.weight_kg or it.total_weight_kg or 0.0) }} kg | {{ "%.3f"|format(it.volume_m3 or it.total_volume_m3 or 0.0) }} m³</span>
+                <span style="font-size: 7pt; color: #64748b;">{{ "%.1f"|format(it.weight_kg or it.total_weight_kg or 0.0) }} kg</span>
             </td>
-            <td><strong>{{ it.city_name }}</strong></td>
-            <td>{{ it.address_line or it.formatted_address or it.city_name }}</td>
+            <td><strong>{{ it.city_name }}</strong>{% if it.customer or it.cliente %}<br><span style="font-size: 7pt; font-weight: normal;">{{ it.customer or it.cliente }}</span>{% endif %}</td>
+            <td>{{ it.address_line or it.formatted_address or it.endereco or it.city_name }}</td>
             <td style="text-align: right;">
-                R$ {{ "%.2f"|format(it.value or it.total_value or 0.0) }}<br>
+                R$ {{ "%.2f"|format(it.value or it.total_value or 0.0) }}
                 {% if it.payment_on_delivery in ["A RECEBER", "SIM", "RECEBER"] %}
-                <span class="badge-receber">A RECEBER</span>
-                <div style="font-size: 6.5pt; color: #dc2626; margin-top: 2px;">
-                    Cód. PIX/Recibo: ______
-                </div>
-                {% else %}
-                <span class="badge-pago">QUITADO</span>
+                <br><span class="badge-receber">A RECEBER</span>
                 {% endif %}
             </td>
             <td>
                 <div class="stub-box">
                     Assinatura Cliente:<br>
-                    ___________________________<br>
-                    Nome/RG: ___________________
+                    ____________________
                 </div>
             </td>
         </tr>
+        {% if it.produtos %}
+        <tr>
+            <td colspan="6" style="padding: 3px 8px 6px 8px; background-color: #ffffff;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 7pt;">
+                    <thead>
+                        <tr style="background-color: #e2e8f0; color: #334155; font-size: 6.5pt;">
+                            <th style="padding: 2px 4px; text-align: left; width: 15%;">Código</th>
+                            <th style="padding: 2px 4px; text-align: left; width: 50%;">Material a Descarregar</th>
+                            <th style="padding: 2px 4px; text-align: right; width: 15%;">Quantidade</th>
+                            <th style="padding: 2px 4px; text-align: right; width: 20%;">Peso Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prod in it.produtos %}
+                        <tr style="border-bottom: 0.5px solid #f1f5f9;">
+                            <td style="padding: 2px 4px; font-family: monospace;">{{ prod.codigo or prod.sku }}</td>
+                            <td style="padding: 2px 4px;">{{ prod.descricao or prod.name }}</td>
+                            <td style="padding: 2px 4px; text-align: right; font-weight: bold;">
+                                {{ prod.quantidade }} {{ prod.unidade }}
+                            </td>
+                            <td style="padding: 2px 4px; text-align: right;">{{ "%.1f"|format(prod.peso_total_kg or 0.0) }} kg</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+        {% endif %}
         {% endfor %}
     </tbody>
 </table>
@@ -541,10 +574,14 @@ class ReportService:
         norm["loading_items"] = loading_items
         norm["delivery_items"] = delivery_items
 
-        # Total de cobrança em dinheiro/PIX na entrega
+        # Normaliza itens de cada pedido e totalizadores
         total_cash = 0.0
         has_long = False
         for it in items:
+            prods = it.get("items") or it.get("itens") or []
+            it["items"] = prods
+            it["itens"] = prods
+            it["produtos"] = prods
             pgt = str(it.get("payment_on_delivery", "")).upper()
             if pgt in ("A RECEBER", "SIM", "RECEBER"):
                 total_cash += float(it.get("value", it.get("total_value", 0.0)))

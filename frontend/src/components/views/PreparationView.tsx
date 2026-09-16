@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   Layers,
   Route,
-  CheckCircle2,
   Package,
 } from 'lucide-react';
 import { api } from '../../services/api';
@@ -490,14 +489,6 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
             {selectedTripCarga.titulo} — {selectedTripCarga.eixo_nome} ({selectedTripCarga.veiculo.nome})
           </div>
 
-          {/* Alerta de Carroceria Aberta */}
-          {selectedTripCarga.alerta_carroceria && (
-            <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950 font-medium flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
-              <span>{selectedTripCarga.alerta_carroceria}</span>
-            </div>
-          )}
-
           {/* 5 Cards de Métricas Específicos do Caminhão */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
@@ -569,15 +560,6 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
                                   Pedido {String(pedIdx + 1).padStart(3, '0')} — {ped.pedido}{' '}
                                   ({ped.cliente || 'Cliente Nobre Lar'}) • {ped.cidade}
                                 </span>
-                                <span className="text-[11px] font-mono text-slate-700">
-                                  {ped.pagamento_na_entrega ? (
-                                    <span className="text-rose-700 font-bold">
-                                      A RECEBER NA ENTREGA
-                                    </span>
-                                  ) : (
-                                    <span className="text-emerald-700">Quitado</span>
-                                  )}
-                                </span>
                               </div>
                             </td>
                           </tr>
@@ -631,9 +613,9 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block">Total a Receber na Rota</span>
+                  <span className="text-slate-400 block">Faturamento da Viagem</span>
                   <span className="text-lg font-bold font-mono text-amber-400">
-                    {fmtMoney(selectedTripRoute.total_a_receber_rota)}
+                    {fmtMoney(selectedTripRoute.faturamento_total)}
                   </span>
                 </div>
                 <div>
@@ -648,11 +630,7 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
                 {selectedTripRoute.paradas.map((parada) => (
                   <div
                     key={parada.parada}
-                    className={`border rounded-xl p-4 bg-white shadow-sm transition ${
-                      parada.status_pagamento === 'A RECEBER'
-                        ? 'border-rose-400 bg-rose-50/20'
-                        : 'border-slate-200'
-                    }`}
+                    className="border border-slate-200 rounded-xl p-4 bg-white shadow-sm transition"
                   >
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                       <div className="flex items-center gap-2">
@@ -663,29 +641,12 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
                           {parada.pedido} — {parada.cliente}
                         </h4>
                       </div>
-
-                      {parada.status_pagamento === 'A RECEBER' ? (
-                        <span className="bg-rose-600 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">
-                          A RECEBER: {fmtMoney(parada.valor_a_receber)}
-                        </span>
-                      ) : (
-                        <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Quitado
-                        </span>
-                      )}
                     </div>
 
                     <div className="mt-2.5 text-xs text-slate-600 flex items-start gap-1.5">
                       <MapPin className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <span>{parada.endereco_completo}</span>
                     </div>
-
-                    {parada.alerta_cobranca && (
-                      <div className="mt-2 text-xs text-rose-700 font-bold bg-rose-100/70 p-2 rounded-lg border border-rose-200">
-                        ⚠️ {parada.alerta_cobranca}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>

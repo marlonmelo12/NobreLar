@@ -1,7 +1,6 @@
 ﻿import React, { useEffect } from 'react';
 import { ItemDrillDown } from '../../types/dispatch';
-import { SituacaoBadge, Badge } from './Badge';
-import { X, Package, CreditCard, AlertCircle, Weight, Box, DollarSign } from 'lucide-react';
+import { X, Package, Weight, Box, DollarSign } from 'lucide-react';
 
 export interface OrderMaterialsModalProps {
   isOpen: boolean;
@@ -13,12 +12,10 @@ export interface OrderMaterialsModalProps {
   cidade?: string;
   endereco?: string;
   situacao?: string;
-  statusPagamento?: string | null;
   valorTotal?: number;
   pesoTotalKg?: number;
   volumeTotalM3?: number;
   itens: ItemDrillDown[];
-  alertaCobranca?: string | null;
 }
 
 export const OrderMaterialsModal: React.FC<OrderMaterialsModalProps> = ({
@@ -30,13 +27,10 @@ export const OrderMaterialsModal: React.FC<OrderMaterialsModalProps> = ({
   cliente,
   cidade,
   endereco,
-  situacao = 'NORMAL',
-  statusPagamento,
   valorTotal = 0,
   pesoTotalKg = 0,
   volumeTotalM3 = 0,
   itens,
-  alertaCobranca,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -56,8 +50,6 @@ export const OrderMaterialsModal: React.FC<OrderMaterialsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const isCollect = statusPagamento === 'A RECEBER';
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
@@ -67,30 +59,24 @@ export const OrderMaterialsModal: React.FC<OrderMaterialsModalProps> = ({
         className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Cabeçalho do Modal */}
+        {/* Cabeçalho Limpo do Modal */}
         <div className="p-5 border-b border-slate-200 bg-slate-50/80 flex items-start justify-between gap-4">
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-lg bg-slate-900 text-white font-mono text-xs font-black">
-                {tipoModal === 'carga' ? `Carga #${ordemOuPonto || 1}` : `Ponto #${ordemOuPonto || 1}`}
+              <span className="text-xs font-mono font-bold text-slate-400">
+                {tipoModal === 'carga' ? `Carga #${ordemOuPonto || 1}` : `Parada #${ordemOuPonto || 1}`}
               </span>
-              <span className="text-xs font-mono font-bold text-slate-500">
+              <span className="text-xs font-mono font-semibold text-slate-500">
                 {pedidoId}
               </span>
-              <h3 className="text-base font-extrabold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900">
                 {cliente || 'Consumidor Final'}
               </h3>
-              <SituacaoBadge situacao={situacao} />
-              {isCollect && (
-                <Badge variant="collect" icon={<CreditCard className="w-3 h-3" />}>
-                  A RECEBER
-                </Badge>
-              )}
             </div>
 
             {(cidade || endereco) && (
               <p className="text-xs text-slate-600">
-                {cidade && <strong className="text-slate-900">{cidade}</strong>}
+                {cidade && <strong className="text-slate-800">{cidade}</strong>}
                 {cidade && endereco ? ' — ' : ''}
                 {endereco}
               </p>
@@ -106,21 +92,6 @@ export const OrderMaterialsModal: React.FC<OrderMaterialsModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
-
-        {/* Alerta de cobrança se houver */}
-        {(isCollect || alertaCobranca) && (
-          <div className="bg-red-50 border-b border-red-200 px-5 py-2.5 flex items-center justify-between text-xs text-red-900 font-medium">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-              <span>{alertaCobranca || 'Cobrança obrigatória no ato da entrega (PIX/Dinheiro)'}</span>
-            </div>
-            {valorTotal > 0 && (
-              <span className="font-mono font-extrabold text-red-700 bg-red-100 px-2 py-0.5 rounded">
-                Receber: R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </span>
-            )}
-          </div>
-        )}
 
         {/* Resumo compacto de métricas do pedido */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-4 bg-slate-50/40 border-b border-slate-100 text-xs">
