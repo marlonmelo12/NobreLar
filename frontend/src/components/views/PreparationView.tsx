@@ -18,7 +18,6 @@ import {
   Package,
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { TruckBedDiagram } from '../loads/TruckBedDiagram';
 
 interface PreparationViewProps {
   orders: DecoupledOrderInput[];
@@ -543,17 +542,9 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
             </div>
           </div>
 
-          {/* ============================================================= */}
-          {/* MODO A: VISÃO CARGA NO CAMINHÃO (LIFO + Agrupamento Pedidos)   */}
-          {/* ============================================================= */}
+          {/* MODO A: VISÃO CARGA NO CAMINHÃO (Agrupamento Pedidos) */}
           {detailMode === 'carga' && (
             <div className="space-y-4">
-              {/* Diagrama Esquemático da Carroceria Aberta LIFO */}
-              <TruckBedDiagram
-                pedidos={selectedTripCarga.pedidos_carroceria}
-                vehicleName={selectedTripCarga.veiculo.nome}
-              />
-
               <div className="border border-amber-400 bg-white rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">

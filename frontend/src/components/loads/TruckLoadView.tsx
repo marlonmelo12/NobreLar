@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { CargaCaminhaoViagem } from '../../types/dispatch';
 import { VehicleMetricsCard } from './VehicleMetricsCard';
-import { TruckBedDiagram } from './TruckBedDiagram';
 import { OrderDrilldownCard } from './OrderDrilldownCard';
 import { Truck, Layers } from 'lucide-react';
 
@@ -21,7 +20,7 @@ export const TruckLoadView: React.FC<TruckLoadViewProps> = ({ cargas }) => {
             <span>Cargas no Caminhão</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Distribuição física da carga na carroceria aberta (LIFO) e drill-down de materiais por viagem.
+            Ordem de carregamento dos pedidos, conferência de peso, volume e materiais da viagem.
           </p>
         </div>
 
@@ -31,7 +30,7 @@ export const TruckLoadView: React.FC<TruckLoadViewProps> = ({ cargas }) => {
           </div>
           <h3 className="text-base font-bold text-slate-800">Nenhuma Viagem Alocada</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-            Envie um lote de pedidos pelo Swagger ou importe um JSON na aba <strong>Preparar</strong> para calcular as cargas e o mapa de estivagem.
+            Envie um lote de pedidos pelo Swagger ou importe um JSON na aba <strong>Preparar</strong> para calcular as cargas e o planejamento das viagens.
           </p>
         </div>
       </div>
@@ -48,18 +47,19 @@ export const TruckLoadView: React.FC<TruckLoadViewProps> = ({ cargas }) => {
           <span>Cargas no Caminhão</span>
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Distribuição física da carga na carroceria aberta (LIFO), cubagem técnica e drill-down de materiais alocados por viagem.
+          Ordem de carregamento dos pedidos, conferência de peso, volume e materiais da viagem.
         </p>
       </div>
       
-      {/* Seletor de Viagens (Abas Horizontais) */}
+      {/* Seletor de Viagens (Abas Horizontais com Numeração Sequencial) */}
       <div className="bg-white rounded-2xl border border-slate-200 p-3 shadow-xs">
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {cargas.map((trip, idx) => {
             const isSelected = idx === selectedTripIndex;
+            const tripTitle = trip.titulo || `Viagem ${idx + 1}`;
             return (
               <button
-                key={trip.viagem_id}
+                key={trip.viagem_id || idx}
                 type="button"
                 onClick={() => setSelectedTripIndex(idx)}
                 className={`px-4 py-2.5 rounded-xl text-left transition shrink-0 border ${
@@ -70,7 +70,7 @@ export const TruckLoadView: React.FC<TruckLoadViewProps> = ({ cargas }) => {
               >
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-black uppercase">
-                    {trip.titulo}
+                    {tripTitle}
                   </span>
                   <span
                     className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
@@ -92,28 +92,21 @@ export const TruckLoadView: React.FC<TruckLoadViewProps> = ({ cargas }) => {
       {/* Card de Métricas do Veículo */}
       <VehicleMetricsCard trip={currentTrip} />
 
-      {/* Diagrama Esquemático da Carroceria Aberta */}
-      <TruckBedDiagram
-        pedidos={currentTrip.pedidos_carroceria}
-        allowsLongItems={currentTrip.veiculo.permite_barras_6m}
-        vehicleName={currentTrip.veiculo.nome}
-      />
-
-      {/* Lista de Pedidos na Carroceria (Ordem LIFO com Drill-Down) */}
+      {/* Lista de Pedidos a Serem Carregados com Drill-down */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-            <span>Sequência Física de Carregamento no Galpão (LIFO)</span>
+            <span>Pedidos a Serem Carregados</span>
             <span className="text-xs font-normal text-slate-500">
               ({currentTrip.pedidos_carroceria.length} pedidos)
             </span>
           </h3>
           <span className="text-xs text-slate-500">
-            Clique no pedido para inspecionar os materiais (drill-down)
+            Clique no pedido para inspecionar os materiais
           </span>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {currentTrip.pedidos_carroceria.map((ped) => (
             <OrderDrilldownCard key={ped.pedido} pedido={ped} />
           ))}

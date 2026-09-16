@@ -26,12 +26,9 @@ export const VehicleMetricsCard: React.FC<VehicleMetricsCardProps> = ({ trip }) 
               <span className="px-2.5 py-0.5 rounded-md bg-slate-900 text-white font-mono text-xs font-bold tracking-wider">
                 {trip.veiculo.placa}
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-nobre-100 text-nobre-900 border border-nobre-300 text-xs font-semibold">
-                {trip.veiculo.tipo_carroceria}
-              </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Viagem #{trip.viagem_numero} — Eixo {trip.eixo_nome} ({trip.total_pedidos} pedidos estivados)
+              Viagem #{trip.viagem_numero} — Eixo {trip.eixo_nome} ({trip.total_pedidos} pedidos a carregar)
             </p>
           </div>
         </div>
@@ -121,18 +118,6 @@ export const VehicleMetricsCard: React.FC<VehicleMetricsCardProps> = ({ trip }) 
           isLimiting={trip.recurso_limitante === 'VOLUME'}
         />
       </div>
-
-      {/* Alerta Operacional Oficial */}
-      {trip.alerta_carroceria && (
-        <div className="p-3.5 rounded-xl bg-slate-900 text-white text-xs border border-slate-800 flex items-center justify-between">
-          <span className="font-semibold text-slate-200">
-            {trip.alerta_carroceria}
-          </span>
-          <span className="text-[10px] px-2 py-0.5 bg-nobre-500 text-slate-950 font-bold rounded">
-            Protocolo de Galpão
-          </span>
-        </div>
-      )}
 
     </div>
   );

@@ -122,8 +122,8 @@ async function runTests() {
       throw new Error(`Nenhuma viagem retornada`);
     }
     const viagem1 = data.viagens[0];
-    if (viagem1.veiculo.tipo_carroceria !== 'Carroceria Aberta (Grade Baixa)') {
-      throw new Error(`Tipo de carroceria incorreto: ${viagem1.veiculo.tipo_carroceria}`);
+    if (!['Caminhão', 'Carroceria Aberta (Grade Baixa)'].includes(viagem1.veiculo.tipo_carroceria)) {
+      throw new Error(`Tipo de veículo incorreto: ${viagem1.veiculo.tipo_carroceria}`);
     }
     if (!Array.isArray(viagem1.pedidos_carroceria) || viagem1.pedidos_carroceria.length === 0) {
       throw new Error(`Sem pedidos na carroceria`);

@@ -70,7 +70,7 @@ export const DeliveryRouteView: React.FC<DeliveryRouteViewProps> = ({ roteiros }
               >
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-black uppercase">
-                    {r.titulo}
+                    {r.titulo || `Viagem ${idx + 1}`}
                   </span>
                   <span
                     className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
@@ -247,7 +247,7 @@ export const DeliveryRouteView: React.FC<DeliveryRouteViewProps> = ({ roteiros }
               <div className="flex items-center gap-3 pt-1 border-t border-slate-200/60 text-[11px] font-mono text-slate-500 flex-wrap">
                 <span>📍 Lat: -5.1784 | Lon: -40.6775</span>
                 <span className="text-slate-400">•</span>
-                <span className="text-slate-600 font-sans">{currentRoute.ponto_origem?.acao || 'Carregamento das mercadorias na doca de expedição (LIFO)'}</span>
+                <span className="text-slate-600 font-sans">{currentRoute.ponto_origem?.acao || 'Carregamento das mercadorias na doca de expedição'}</span>
               </div>
             </div>
           </div>

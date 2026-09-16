@@ -133,10 +133,10 @@ class DailyDispatchPipeline:
         fleet_vehicles = self._get_fleet_vehicles()
         all_trips: List[Dict[str, Any]] = []
         unallocated_orders: List[Dict[str, Any]] = []
+        trip_idx = 1
 
         for axis_id, axis_orders in orders_by_axis.items():
             pending_pool = list(axis_orders)
-            trip_idx = 1
 
             while pending_pool:
                 assigned_vehicle = self._select_vehicle_for_trip(
@@ -294,7 +294,7 @@ class DailyDispatchPipeline:
                     "vehicle_capacity_kg": assigned_vehicle["capacity_kg"],
                     "vehicle_useful_volume_m3": assigned_vehicle["useful_volume_m3"],
                     "vehicle_allows_long_items": assigned_vehicle["allows_long_items"],
-                    "vehicle_type": "Carroceria Aberta (Grade Baixa)",
+                    "vehicle_type": "Caminhão",
                     "total_orders": len(allocated_orders),
                     "total_value": round(sum(o["total_value"] for o in allocated_orders), 2),
                     "total_weight_kg": round(sum(o["total_weight_kg"] for o in allocated_orders), 2),
@@ -517,7 +517,7 @@ class DailyDispatchPipeline:
         """Formata viagens para a visão de Carregamento na Carroceria Aberta com drill-down."""
         formatted: List[Dict[str, Any]] = []
         for t in trips:
-            alerta = "Carroceria aberta — Distribuir sacarias e pisos sobre o assoalho no eixo traseiro."
+            alerta = None
 
             pedidos_carroceria = []
             for it in t.get("items", []):
@@ -550,7 +550,7 @@ class DailyDispatchPipeline:
                     "id": t["vehicle_id"],
                     "nome": t["vehicle_name"],
                     "placa": t["vehicle_plate"],
-                    "tipo_carroceria": "Carroceria Aberta (Grade Baixa)",
+                    "tipo_carroceria": "Caminhão",
                     "capacidade_kg": t.get("vehicle_capacity_kg", 4800.0),
                     "volume_util_m3": t.get("vehicle_useful_volume_m3", 18.5),
                     "permite_barras_6m": t.get("vehicle_allows_long_items", True),
@@ -628,7 +628,7 @@ class DailyDispatchPipeline:
                     "id": t["vehicle_id"],
                     "nome": t["vehicle_name"],
                     "placa": t["vehicle_plate"],
-                    "tipo": "Carroceria Aberta",
+                    "tipo": "Caminhão",
                 },
                 "total_paradas": t["total_orders"],
                 "faturamento_total": t["total_value"],

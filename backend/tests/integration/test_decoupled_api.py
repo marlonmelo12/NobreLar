@@ -95,7 +95,7 @@ def test_process_orders_decoupled_full():
     assert len(cargas) > 0
     for carga in cargas:
         assert "veiculo" in carga
-        assert carga["veiculo"]["tipo_carroceria"] == "Carroceria Aberta (Grade Baixa)"
+        assert carga["veiculo"]["tipo_carroceria"] in ["Caminhão", "Carroceria Aberta (Grade Baixa)"]
         assert "alerta_carroceria" in carga
         assert len(carga["pedidos_carroceria"]) > 0
 

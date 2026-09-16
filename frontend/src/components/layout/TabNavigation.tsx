@@ -24,7 +24,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
     {
       id: 'loads' as ActiveTabType,
       label: 'Cargas no Caminhão',
-      sublabel: 'Carroceria Aberta & LIFO',
+      sublabel: 'Ordem de Carregamento',
       icon: Truck,
       count: tripsCount,
     },
