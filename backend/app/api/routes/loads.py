@@ -500,9 +500,8 @@ def get_plan_audit(plan_id: int, db: Session = Depends(get_db)):
     return db.query(LoadPlanAudit).filter(LoadPlanAudit.load_plan_id == plan_id).all()
 
 
-@router.get("/{plan_id}/manifest/pdf", summary="Baixar Romaneio em PDF")
-def download_manifest_pdf(plan_id: int, db: Session = Depends(get_db)):
-    """Gera e retorna o PDF oficial do Romaneio de Carga para impressão e assinatura."""
+def _get_plan_report_data(plan_id: int, db: Session):
+    """Auxiliar para extrair e normalizar dados de relatório de um plano de carga."""
     plan = db.query(LoadPlan).filter(LoadPlan.id == plan_id).first()
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plano de carga não encontrado.")
@@ -512,17 +511,28 @@ def download_manifest_pdf(plan_id: int, db: Session = Depends(get_db)):
     ).order_by(LoadPlanItem.delivery_order).all()
 
     items_data = []
+    has_long_items = False
     for it in plan_items:
         ord_obj = db.query(Order).filter(Order.id == it.order_id).first()
+        is_long = ord_obj.has_long_items if ord_obj else False
+        if is_long:
+            has_long_items = True
         items_data.append({
             "delivery_order": it.delivery_order,
             "loading_order": it.loading_order,
             "order_id": it.order_id,
+            "external_id": ord_obj.external_id if ord_obj else it.order_id,
             "city_name": it.city_name,
             "address_line": ord_obj.address_line if ord_obj else it.city_name,
+            "formatted_address": ord_obj.formatted_address if ord_obj else None,
             "weight_kg": it.weight_kg,
+            "total_weight_kg": it.weight_kg,
             "volume_m3": it.volume_m3,
+            "total_volume_m3": it.volume_m3,
             "value": it.value,
+            "total_value": it.value,
+            "has_long_items": is_long,
+            "is_mandatory": ord_obj.is_mandatory if ord_obj else False,
             "payment_on_delivery": ord_obj.payment_on_delivery if ord_obj else None,
         })
 
@@ -544,10 +554,59 @@ def download_manifest_pdf(plan_id: int, db: Session = Depends(get_db)):
         "algorithm_version": plan.algorithm_version,
         "solver_status": plan.solver_status,
         "solve_duration_ms": plan.solve_duration_ms,
+        "has_long_items": has_long_items,
         "items": items_data
     }
+    return plan, plan_data
 
-    pdf_bytes = ReportService.generate_manifest_pdf(plan_data)
+
+@router.get("/{plan_id}/loading-sheet/pdf", summary="Baixar Mapa de Carregamento de Doca (LIFO) em PDF")
+def download_loading_sheet_pdf(plan_id: int, db: Session = Depends(get_db)):
+    """Gera o PDF oficial do Mapa de Carregamento de Doca, ordenado por sequência LIFO de estivagem."""
+    plan, plan_data = _get_plan_report_data(plan_id, db)
+    pdf_bytes = ReportService.generate_loading_sheet_pdf(plan_data)
+    filename = f"carregamento_doca_{plan.execution_id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/{plan_id}/loading-sheet/html", response_class=Response, summary="Visualizar Mapa de Carregamento em HTML")
+def view_loading_sheet_html(plan_id: int, db: Session = Depends(get_db)):
+    """Retorna o HTML do Mapa de Carregamento de Doca para conferência rápida e impressão nativa."""
+    _, plan_data = _get_plan_report_data(plan_id, db)
+    html_str = ReportService.render_loading_sheet_html(plan_data)
+    return Response(content=html_str, media_type="text/html")
+
+
+@router.get("/{plan_id}/delivery-route/pdf", summary="Baixar Roteiro de Entregas Otimizado (TSP) em PDF")
+def download_delivery_route_pdf(plan_id: int, db: Session = Depends(get_db)):
+    """Gera o PDF oficial do Roteiro de Entregas, ordenado pela sequência do Caixeiro Viajante (TSP)."""
+    plan, plan_data = _get_plan_report_data(plan_id, db)
+    pdf_bytes = ReportService.generate_delivery_route_pdf(plan_data)
+    filename = f"roteiro_entregas_tsp_{plan.execution_id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/{plan_id}/delivery-route/html", response_class=Response, summary="Visualizar Roteiro TSP em HTML")
+def view_delivery_route_html(plan_id: int, db: Session = Depends(get_db)):
+    """Retorna o HTML do Roteiro de Entregas Otimizado (TSP) para o motorista."""
+    _, plan_data = _get_plan_report_data(plan_id, db)
+    html_str = ReportService.render_delivery_route_html(plan_data)
+    return Response(content=html_str, media_type="text/html")
+
+
+@router.get("/{plan_id}/manifest/pdf", summary="Baixar Romaneio em PDF (Retrocompatível)")
+def download_manifest_pdf(plan_id: int, db: Session = Depends(get_db)):
+    """Gera e retorna o PDF do Romaneio de Carga (equivalente ao Mapa de Carregamento de Doca)."""
+    plan, plan_data = _get_plan_report_data(plan_id, db)
+    pdf_bytes = ReportService.generate_loading_sheet_pdf(plan_data)
     filename = f"romaneio_{plan.execution_id}.pdf"
     return Response(
         content=pdf_bytes,
@@ -556,52 +615,9 @@ def download_manifest_pdf(plan_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/{plan_id}/manifest/html", response_class=Response, summary="Visualizar Romaneio em HTML")
+@router.get("/{plan_id}/manifest/html", response_class=Response, summary="Visualizar Romaneio em HTML (Retrocompatível)")
 def get_manifest_html(plan_id: int, db: Session = Depends(get_db)):
-    """Retorna o HTML formatado do Romaneio de Carga para visualização e window.print()."""
-    plan = db.query(LoadPlan).filter(LoadPlan.id == plan_id).first()
-    if not plan:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plano de carga não encontrado.")
-
-    plan_items = db.query(LoadPlanItem).filter(
-        LoadPlanItem.load_plan_id == plan_id
-    ).order_by(LoadPlanItem.delivery_order).all()
-
-    items_data = []
-    for it in plan_items:
-        ord_obj = db.query(Order).filter(Order.id == it.order_id).first()
-        items_data.append({
-            "delivery_order": it.delivery_order,
-            "loading_order": it.loading_order,
-            "order_id": it.order_id,
-            "city_name": it.city_name,
-            "address_line": ord_obj.address_line if ord_obj else it.city_name,
-            "weight_kg": it.weight_kg,
-            "volume_m3": it.volume_m3,
-            "value": it.value,
-            "payment_on_delivery": ord_obj.payment_on_delivery if ord_obj else None,
-        })
-
-    plan_data = {
-        "execution_id": plan.execution_id,
-        "created_at": plan.created_at.strftime("%d/%m/%Y %H:%M"),
-        "axis_name": plan.axis.name,
-        "vehicle_name": plan.vehicle.name,
-        "vehicle_plate": plan.vehicle.plate,
-        "profile_name": plan.profile_snapshot.get("profile_name", "Padrão"),
-        "total_orders": plan.total_orders,
-        "total_value": plan.total_value,
-        "limiting_resource": plan.limiting_resource,
-        "total_weight_kg": plan.total_weight_kg,
-        "weight_occupancy": plan.weight_occupancy,
-        "total_volume_m3": plan.total_volume_m3,
-        "volume_occupancy": plan.volume_occupancy,
-        "estimated_cubing_pct": plan.estimated_cubing_pct,
-        "algorithm_version": plan.algorithm_version,
-        "solver_status": plan.solver_status,
-        "solve_duration_ms": plan.solve_duration_ms,
-        "items": items_data
-    }
-
-    html_str = ReportService.render_manifest_html(plan_data)
+    """Retorna o HTML formatado do Romaneio de Carga."""
+    _, plan_data = _get_plan_report_data(plan_id, db)
+    html_str = ReportService.render_loading_sheet_html(plan_data)
     return Response(content=html_str, media_type="text/html")

@@ -4,13 +4,14 @@ import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Response
 from sqlalchemy.orm import Session
 import structlog
 
 from app.core.config import settings
 from app.infrastructure.database.session import get_db
 from app.services.dispatch_pipeline import DailyDispatchPipeline
+from app.services.report_service import ReportService
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/dispatch", tags=["Expedição Diária & Multi-Viagens"])
@@ -97,3 +98,50 @@ def simulate_daily_mock(
         time_limit_seconds=time_limit_seconds
     )
     return result
+
+
+@router.post(
+    "/trips/loading-sheet/pdf",
+    summary="Emite PDF do Mapa de Carregamento de Doca para uma viagem do pipeline"
+)
+def generate_trip_loading_sheet_pdf(trip_data: Dict[str, Any]):
+    """Recebe os dados de uma viagem gerada no pipeline e retorna o PDF de carregamento (LIFO)."""
+    try:
+        pdf_bytes = ReportService.generate_loading_sheet_pdf(trip_data)
+        trip_id = trip_data.get("trip_id", "viagem")
+        filename = f"carregamento_doca_{trip_id}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Erro ao emitir PDF de carregamento da viagem: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro na geração do PDF de carregamento: {str(e)}"
+        )
+
+
+@router.post(
+    "/trips/delivery-route/pdf",
+    summary="Emite PDF do Roteiro de Entregas TSP para uma viagem do pipeline"
+)
+def generate_trip_delivery_route_pdf(trip_data: Dict[str, Any]):
+    """Recebe os dados de uma viagem gerada no pipeline e retorna o PDF do roteiro de entregas TSP."""
+    try:
+        pdf_bytes = ReportService.generate_delivery_route_pdf(trip_data)
+        trip_id = trip_data.get("trip_id", "viagem")
+        filename = f"roteiro_entregas_tsp_{trip_id}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Erro ao emitir PDF de roteiro TSP da viagem: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro na geração do PDF do roteiro TSP: {str(e)}"
+        )
+
