@@ -114,19 +114,180 @@ def generate_trip_delivery_route_pdf(trip_data: Dict[str, Any]):
         )
 
 
+SAMPLE_API_ORDERS: List[Dict[str, Any]] = [
+    {
+        "id": "L1260901",
+        "data": "16/09/2026",
+        "vendedor": "Vendedor Loja CD",
+        "cliente": "Construtora Vale do Poty",
+        "cidade": "CRATEUS",
+        "endereco": "Rua Dom Pedro II, 450, Centro, Crateús - CE",
+        "valor": 4850.00,
+        "urgente": True,
+        "situacao": "URGENTE",
+        "pagamento_entrega": "QUITADO",
+        "itens": [
+            {
+                "codigo": "01042",
+                "descricao": "Piso Cerâmico Esmaltado 60x60 Bold",
+                "quantidade": 40.0,
+                "unidade": "CX",
+                "preco_unitario": 52.50
+            },
+            {
+                "codigo": "00318",
+                "descricao": "Argamassa AC-III Cinza 20kg",
+                "quantidade": 25.0,
+                "unidade": "SC",
+                "preco_unitario": 34.00
+            },
+            {
+                "codigo": "00105",
+                "descricao": "Cimento CP II-E-32 50kg",
+                "quantidade": 30.0,
+                "unidade": "SC",
+                "preco_unitario": 38.00
+            }
+        ]
+    },
+    {
+        "id": "L1260902",
+        "data": "16/09/2026",
+        "vendedor": "Balcão Crateús",
+        "cliente": "Marcenaria e Reforma Silva",
+        "cidade": "CRATEUS",
+        "endereco": "Av. Sargento Hermínio, 1200, São Vicente, Crateús - CE",
+        "valor": 2150.00,
+        "urgente": False,
+        "situacao": "NORMAL",
+        "pagamento_entrega": "A RECEBER",
+        "itens": [
+            {
+                "codigo": "01045",
+                "descricao": "Porcelanato Polido 84x84 Retificado",
+                "quantidade": 20.0,
+                "unidade": "CX",
+                "preco_unitario": 78.90
+            },
+            {
+                "codigo": "00412",
+                "descricao": "Rejunte Porcelanato Resinado Branco 1kg",
+                "quantidade": 10.0,
+                "unidade": "UN",
+                "preco_unitario": 18.50
+            },
+            {
+                "codigo": "00890",
+                "descricao": "Tinta Acrílica Fosca Standard 18L",
+                "quantidade": 2.0,
+                "unidade": "UN",
+                "preco_unitario": 198.00
+            }
+        ]
+    },
+    {
+        "id": "L1260903",
+        "data": "16/09/2026",
+        "vendedor": "Equipe Regional Sertão",
+        "cliente": "Comercial e Construção Tamboril",
+        "cidade": "TAMBORIL",
+        "endereco": "Rua Coronel Oliveira, 230, Centro, Tamboril - CE",
+        "valor": 5400.00,
+        "urgente": False,
+        "situacao": "NORMAL",
+        "pagamento_entrega": "QUITADO",
+        "itens": [
+            {
+                "codigo": "00105",
+                "descricao": "Cimento CP II-E-32 50kg",
+                "quantidade": 50.0,
+                "unidade": "SC",
+                "preco_unitario": 38.00
+            },
+            {
+                "codigo": "01042",
+                "descricao": "Piso Cerâmico 60x60",
+                "quantidade": 35.0,
+                "unidade": "CX",
+                "preco_unitario": 48.00
+            }
+        ]
+    },
+    {
+        "id": "L1260904",
+        "data": "16/09/2026",
+        "vendedor": "Balcão Rápido",
+        "cliente": "Cliente Retirada Loja",
+        "cidade": "CRATEUS",
+        "endereco": "Retirada no Balcão CD Crateús",
+        "valor": 350.00,
+        "urgente": False,
+        "situacao": "RETIRADA",
+        "pagamento_entrega": "QUITADO",
+        "itens": [
+            {
+                "codigo": "00912",
+                "descricao": "Torneira Monocomando Gourmet",
+                "quantidade": 1.0,
+                "unidade": "UN",
+                "preco_unitario": 350.00
+            }
+        ]
+    },
+    {
+        "id": "L1260905",
+        "data": "16/09/2026",
+        "vendedor": "Televendas",
+        "cliente": "Cliente Cancelamento",
+        "cidade": "INDEPENDENCIA",
+        "endereco": "Rua Principal, 50",
+        "valor": 1200.00,
+        "urgente": False,
+        "situacao": "CANCELADO",
+        "pagamento_entrega": "QUITADO",
+        "itens": [
+            {
+                "codigo": "01042",
+                "descricao": "Piso Cerâmico 60x60",
+                "quantidade": 20.0,
+                "unidade": "CX",
+                "preco_unitario": 60.00
+            }
+        ]
+    }
+]
+
+
 class DispatchStateStore:
-    """Armazenamento em memória do último processamento de despacho logístico."""
+    """Armazenamento em memória do processamento de despacho logístico."""
     def __init__(self):
         self.last_result: Optional[Dict[str, Any]] = None
         self.last_trips: Optional[List[Dict[str, Any]]] = None
+        self.staged_orders: Optional[List[Dict[str, Any]]] = None
+        self.staged_params: Dict[str, Any] = {"profile_name": "Equilibrado", "time_limit": 20.0}
 
     def set_result(self, result: Dict[str, Any], trips: List[Dict[str, Any]]):
         self.last_result = result
         self.last_trips = trips
+        self.staged_orders = None
+
+    def set_staged(
+        self,
+        orders_raw: List[Dict[str, Any]],
+        staged_result: Dict[str, Any],
+        profile_name: str = "Equilibrado",
+        time_limit: float = 20.0
+    ):
+        self.staged_orders = orders_raw
+        self.staged_params = {"profile_name": profile_name, "time_limit": time_limit}
+        self.last_result = staged_result
+        self.last_trips = []
 
     def clear(self):
         self.last_result = None
         self.last_trips = None
+        self.staged_orders = None
+        self.staged_params = {"profile_name": "Equilibrado", "time_limit": 20.0}
 
     def get_trips(
         self,
@@ -276,6 +437,132 @@ def submit_and_process_orders_post(
     orders_raw, profile_name, time_limit = _extract_batch_orders_and_params(payload)
     if not orders_raw:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nenhum pedido fornecido no lote.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    raw_res = pipeline.process_orders_collection(
+        raw_orders=orders_raw,
+        profile_name=profile_name,
+        time_limit_seconds=time_limit
+    )
+    result = pipeline.process_orders_json(
+        orders=orders_raw,
+        profile_name=profile_name,
+        time_limit_seconds=time_limit
+    )
+    dispatch_state.set_result(result, raw_res.get("trips", []))
+    return result
+
+
+def _build_staged_orders_response(pipeline: DailyDispatchPipeline, orders_raw: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Cria resposta intermediária onde pedidos válidos ficam como 'não alocados' aguardando execução dos limites."""
+    valid_orders = []
+    discarded_logs = []
+
+    for row_dict in orders_raw:
+        is_valid, order_data, discard_log = pipeline._normalize_single_order(row_dict)
+        if not is_valid:
+            if discard_log:
+                discarded_logs.append(discard_log)
+        else:
+            order_data["motivo_nao_alocacao"] = "Aguardando execução do controle de limites e roteirização"
+            valid_orders.append(order_data)
+
+    unallocated_formatted = pipeline.format_unallocated_orders_response(valid_orders)
+    total_val = sum(o["total_value"] for o in valid_orders)
+
+    return {
+        "status": "SUCESSO",
+        "resumo": {
+            "total_records_read": len(orders_raw),
+            "total_discarded_cleaning": len(discarded_logs),
+            "total_valid_deliveries": len(valid_orders),
+            "total_allocated_orders": 0,
+            "total_unallocated_orders": len(valid_orders),
+            "total_trips_generated": 0,
+            "total_invoiced_value": round(total_val, 2),
+            "total_allocated_weight_kg": 0.0,
+            "total_allocated_volume_m3": 0.0,
+        },
+        "cargas_caminhao": [],
+        "roteiros_entrega": [],
+        "descartes_limpeza": discarded_logs,
+        "pedidos_nao_alocados": unallocated_formatted
+    }
+
+
+@router.post(
+    "/stage",
+    summary="Carrega e armazena os pedidos desalocados para exibição no dashboard antes da execução",
+    response_model=DecoupledDispatchResponse
+)
+def stage_orders_post(
+    payload: Union[DecoupledBatchRequest, DecoupledOrderInput, List[DecoupledOrderInput], Dict[str, Any], List[Dict[str, Any]]],
+    db: Session = Depends(get_db)
+):
+    """Armazena os pedidos enviados via JSON em estado desalocado para pré-visualização no Dashboard."""
+    orders_raw, profile_name, time_limit = _extract_batch_orders_and_params(payload)
+    if not orders_raw:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nenhum pedido fornecido no lote.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    staged_res = _build_staged_orders_response(pipeline, orders_raw)
+    dispatch_state.set_staged(orders_raw, staged_res, profile_name, time_limit)
+    return staged_res
+
+
+@router.post(
+    "/simulate",
+    summary="Simula a carga de pedidos da API (inicialmente desalocados)",
+    response_model=DecoupledDispatchResponse
+)
+def simulate_api_load(
+    payload: Optional[Union[DecoupledBatchRequest, DecoupledOrderInput, List[DecoupledOrderInput], Dict[str, Any], List[Dict[str, Any]]]] = None,
+    db: Session = Depends(get_db)
+):
+    """Simula uma carga de pedidos faturados vindos da API, deixando-os inicialmente desalocados no Dashboard."""
+    orders_raw = None
+    profile_name = "Equilibrado"
+    time_limit = 20.0
+
+    if payload:
+        orders_raw, profile_name, time_limit = _extract_batch_orders_and_params(payload)
+
+    if not orders_raw:
+        orders_raw = SAMPLE_API_ORDERS
+
+    pipeline = DailyDispatchPipeline(db=db)
+    staged_res = _build_staged_orders_response(pipeline, orders_raw)
+    dispatch_state.set_staged(orders_raw, staged_res, profile_name, time_limit)
+    return staged_res
+
+
+@router.post(
+    "/execute-limits",
+    summary="Executa o controle dos limites e roteirização sobre os pedidos desalocados",
+    response_model=DecoupledDispatchResponse
+)
+def execute_limits_and_route(
+    payload: Optional[Union[DecoupledBatchRequest, DecoupledOrderInput, List[DecoupledOrderInput], Dict[str, Any], List[Dict[str, Any]]]] = None,
+    db: Session = Depends(get_db)
+):
+    """Dispara a alocação de cargas e roteirização com pontos a partir dos pedidos carregados/desalocados."""
+    orders_raw = None
+    profile_name = dispatch_state.staged_params.get("profile_name", "Equilibrado")
+    time_limit = dispatch_state.staged_params.get("time_limit", 20.0)
+
+    if payload:
+        extracted, p_name, t_limit = _extract_batch_orders_and_params(payload)
+        if extracted:
+            orders_raw = extracted
+            profile_name = p_name
+            time_limit = t_limit
+
+    if not orders_raw:
+        orders_raw = dispatch_state.staged_orders
+
+    if not orders_raw:
+        # Se nenhum pedido foi carregado, usa os pedidos de simulação padrão
+        orders_raw = SAMPLE_API_ORDERS
 
     pipeline = DailyDispatchPipeline(db=db)
     raw_res = pipeline.process_orders_collection(

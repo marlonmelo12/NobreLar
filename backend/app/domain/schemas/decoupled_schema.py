@@ -53,6 +53,10 @@ class DecoupledOrderInput(BaseModel):
         description="Situação operacional canônica: NORMAL, URGENTE, RETIRADA, CARRO HORARIO, PROGRAMADO, TOPIQUE, CANCELADO"
     )
     pagamento_entrega: Optional[str] = Field(None, description="'A RECEBER', 'SIM' ou None se já quitado")
+    latitude: Optional[float] = Field(None, description="Latitude geográfica opcional do ponto")
+    longitude: Optional[float] = Field(None, description="Longitude geográfica opcional do ponto")
+    lat: Optional[float] = Field(None, description="Alias curto de latitude")
+    lon: Optional[float] = Field(None, description="Alias curto de longitude")
     itens: List[DecoupledItemInput] = Field(default_factory=list, description="Lista de itens do pedido")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -130,13 +134,21 @@ class TruckLoadResponse(BaseModel):
 
 # --- VISÃO 2: Ordem de Entrega (Roteiro TSP) ---
 class DeliveryRouteStopItem(BaseModel):
-    """Parada de entrega com dados completos de rota, cobrança e drill-down de itens."""
+    """Parada de entrega com dados completos de rota, ponto geográfico, cobrança e drill-down de itens."""
+    ponto_numero: int = 1
     parada: int
+    tipo_ponto: str = "ENTREGA"
     pedido: str
     external_id: str
     cliente: Optional[str] = None
     cidade: str
     endereco_completo: str
+    latitude: float = 0.0
+    longitude: float = 0.0
+    coordenadas: Dict[str, float] = Field(default_factory=dict)
+    distancia_trecho_km: float = 0.0
+    distancia_acumulada_km: float = 0.0
+    google_maps_url: Optional[str] = None
     posicao_na_carroceria: Optional[str] = None
     situacao: str = Field("NORMAL", description="Situação operacional: NORMAL, URGENTE, CARRO HORARIO, etc.")
     valor_pedido: float
@@ -161,6 +173,10 @@ class DeliveryRouteTrip(BaseModel):
     faturamento_total: float
     total_a_receber_rota: float
     distancia_estimada_km: float
+    ponto_origem: Optional[Dict[str, Any]] = None
+    ponto_retorno: Optional[Dict[str, Any]] = None
+    pontos_rota: List[Dict[str, Any]] = []
+    itinerario_resumido: Optional[str] = None
     paradas: List[DeliveryRouteStopItem] = []
 
 

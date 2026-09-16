@@ -187,28 +187,117 @@ export const DeliveryRouteView: React.FC<DeliveryRouteViewProps> = ({ roteiros }
         </div>
       </div>
 
+      {/* Itinerário Resumido dos Pontos */}
+      <div className="bg-amber-50 rounded-2xl border border-amber-200/80 p-4 shadow-xs space-y-2">
+        <div className="flex items-center justify-between flex-wrap gap-2 text-xs font-bold text-amber-900">
+          <div className="flex items-center gap-2">
+            <Route className="w-4 h-4 text-amber-600" />
+            <span>Itinerário Completo dos Pontos Definidos na Rota:</span>
+          </div>
+          <span className="text-[11px] font-mono bg-amber-200/60 text-amber-900 px-2.5 py-0.5 rounded-full">
+            {currentRoute.paradas.length + 2} pontos geográficos mapeados
+          </span>
+        </div>
+        <div className="text-xs font-mono text-slate-800 bg-white/90 p-3 rounded-xl border border-amber-200 overflow-x-auto">
+          {currentRoute.itinerario_resumido || (
+            `CD Crateús (Origem) ➔ ${currentRoute.paradas.map(p => `Ponto ${p.ponto_numero || p.parada}: ${p.cliente || 'Cliente'} (${p.cidade})`).join(' ➔ ')} ➔ Retorno CD Crateús`
+          )}
+        </div>
+      </div>
+
       {/* Linha do Tempo de Paradas */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-            <span>Sequência Geográfica de Paradas</span>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
-              Partida: CD Crateús
+            <span>Sequência Geográfica de Pontos da Rota</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 font-mono">
+              Origem & Retorno: CD Crateús
             </span>
           </h3>
           <span className="text-xs text-slate-500">
-            Menor percurso com retorno ao Centro de Distribuição
+            Ordem ótima calculada com retorno ao depósito
           </span>
         </div>
 
         <div className="pt-2">
-          {currentRoute.paradas.map((parada, idx) => (
+          {/* Ponto 0: Origem / Partida */}
+          <div className="relative pl-8 pb-8">
+            <div className="absolute left-3.5 top-8 bottom-0 w-0.5 bg-slate-200" />
+            <div className="absolute left-0 top-1 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs border-2 shadow-sm bg-amber-400 text-slate-950 border-amber-500">
+              0
+            </div>
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-400 text-slate-950 font-mono">
+                    PONTO #0 • ORIGEM / PARTIDA
+                  </span>
+                  <h4 className="text-sm font-extrabold text-slate-900">
+                    {currentRoute.ponto_origem?.nome || 'CD Nobre Lar Crateús (Matriz)'}
+                  </h4>
+                </div>
+                <span className="text-[11px] font-mono font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                  Partida: 0.0 km
+                </span>
+              </div>
+              <div className="text-xs text-slate-600 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span>{currentRoute.ponto_origem?.endereco || 'Avenida Doutor Edilberto Frota, 2000, Planalto, Crateús - CE'}</span>
+              </div>
+              <div className="flex items-center gap-3 pt-1 border-t border-slate-200/60 text-[11px] font-mono text-slate-500 flex-wrap">
+                <span>📍 Lat: -5.1784 | Lon: -40.6775</span>
+                <span className="text-slate-400">•</span>
+                <span className="text-slate-600 font-sans">{currentRoute.ponto_origem?.acao || 'Carregamento das mercadorias na doca de expedição (LIFO)'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pontos 1..N: Entregas */}
+          {currentRoute.paradas.map((parada) => (
             <DeliveryStopCard
               key={parada.pedido}
               parada={parada}
-              isLastStop={idx === currentRoute.paradas.length - 1}
+              isLastStop={false}
             />
           ))}
+
+          {/* Ponto Final: Retorno ao CD */}
+          <div className="relative pl-8">
+            <div className="absolute left-0 top-1 w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs border-2 shadow-sm bg-slate-900 text-amber-400 border-slate-800">
+              🏁
+            </div>
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-slate-900 text-white font-mono">
+                    PONTO #{currentRoute.paradas.length + 1} • RETORNO AO CD
+                  </span>
+                  <h4 className="text-sm font-extrabold text-slate-900">
+                    {currentRoute.ponto_retorno?.nome || 'CD Nobre Lar Crateús (Matriz)'}
+                  </h4>
+                </div>
+                <span className="text-[11px] font-mono font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+                  Distância Total: {currentRoute.distancia_estimada_km.toFixed(1)} km
+                </span>
+              </div>
+              <div className="text-xs text-slate-600 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span>{currentRoute.ponto_retorno?.endereco || 'Avenida Doutor Edilberto Frota, 2000, Planalto, Crateús - CE'}</span>
+              </div>
+              <div className="flex items-center gap-3 pt-1 border-t border-slate-200/60 text-[11px] font-mono text-slate-500 flex-wrap">
+                <span>📍 Lat: -5.1784 | Lon: -40.6775</span>
+                {currentRoute.ponto_retorno?.distancia_trecho_km !== undefined && (
+                  <>
+                    <span className="text-slate-400">•</span>
+                    <span className="text-amber-700 font-bold">+{currentRoute.ponto_retorno.distancia_trecho_km.toFixed(1)} km do último cliente</span>
+                  </>
+                )}
+                <span className="text-slate-400">•</span>
+                <span className="text-slate-600 font-sans">{currentRoute.ponto_retorno?.acao || 'Retorno ao Centro de Distribuição Nobre Lar e prestação de contas'}</span>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 

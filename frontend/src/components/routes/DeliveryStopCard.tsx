@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ParadaEntregaItem } from '../../types/dispatch';
 import { SituacaoBadge } from '../common/Badge';
-import { MapPin, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Package, CreditCard } from 'lucide-react';
+import { MapPin, AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Package, CreditCard, ExternalLink, Navigation } from 'lucide-react';
 
 interface DeliveryStopCardProps {
   parada: ParadaEntregaItem;
@@ -11,6 +11,7 @@ interface DeliveryStopCardProps {
 export const DeliveryStopCard: React.FC<DeliveryStopCardProps> = ({ parada, isLastStop = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isCollect = parada.status_pagamento === 'A RECEBER';
+  const pontoNum = parada.ponto_numero || parada.parada;
 
   return (
     <div className="relative pl-8 pb-8 last:pb-0">
@@ -28,7 +29,7 @@ export const DeliveryStopCard: React.FC<DeliveryStopCardProps> = ({ parada, isLa
             : 'bg-slate-900 text-nobre-400 border-slate-800'
         }`}
       >
-        {parada.parada}
+        {pontoNum}
       </div>
 
       {/* Card da Parada */}
@@ -58,7 +59,7 @@ export const DeliveryStopCard: React.FC<DeliveryStopCardProps> = ({ parada, isLa
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-slate-900 text-white font-mono">
-                  PARADA #{parada.parada}
+                  PONTO #{pontoNum}
                 </span>
                 <span className="text-xs font-mono font-bold text-slate-500">
                   {parada.pedido}
@@ -69,10 +70,41 @@ export const DeliveryStopCard: React.FC<DeliveryStopCardProps> = ({ parada, isLa
                 <SituacaoBadge situacao={parada.situacao} />
               </div>
 
-              <div className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold mt-1">
-                <MapPin className="w-3.5 h-3.5 text-nobre-600 shrink-0" />
+              <div className="flex items-center gap-1.5 text-xs text-slate-700 font-semibold mt-1.5">
+                <MapPin className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                 <span>{parada.cidade}</span>
                 <span className="text-slate-400 font-normal">— {parada.endereco_completo}</span>
+              </div>
+
+              {/* Informações Geográficas do Ponto (Coordenadas & Distâncias) */}
+              <div className="flex items-center gap-3 flex-wrap mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-mono">
+                {parada.latitude !== undefined && parada.longitude !== undefined && (
+                  <span className="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+                    📍 {parada.latitude.toFixed(4)}, {parada.longitude.toFixed(4)}
+                  </span>
+                )}
+                {parada.distancia_trecho_km !== undefined && (
+                  <span className="flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded font-bold">
+                    <Navigation className="w-3 h-3 text-amber-600" />
+                    +{parada.distancia_trecho_km.toFixed(1)} km do ponto anterior
+                  </span>
+                )}
+                {parada.distancia_acumulada_km !== undefined && (
+                  <span className="text-slate-400">
+                    ({parada.distancia_acumulada_km.toFixed(1)} km acumulados)
+                  </span>
+                )}
+                {parada.google_maps_url && (
+                  <a
+                    href={parada.google_maps_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-sans font-medium ml-auto"
+                  >
+                    <span>Abrir no Mapa</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
             </div>
 

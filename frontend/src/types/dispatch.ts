@@ -131,13 +131,36 @@ export interface VeiculoRotaInfo {
   tipo: string;
 }
 
+export interface PontoRotaInfo {
+  ponto_numero: number;
+  tipo_ponto: 'ORIGEM' | 'ENTREGA' | 'RETORNO';
+  nome?: string;
+  cidade?: string;
+  endereco?: string;
+  latitude: number;
+  longitude: number;
+  coordenadas?: { lat: number; lon: number };
+  distancia_trecho_km: number;
+  distancia_acumulada_km: number;
+  google_maps_url?: string;
+  acao?: string;
+}
+
 export interface ParadaEntregaItem {
+  ponto_numero?: number;
   parada: number;
+  tipo_ponto?: string;
   pedido: string;
   external_id: string;
   cliente: string | null;
   cidade: string;
   endereco_completo: string;
+  latitude?: number;
+  longitude?: number;
+  coordenadas?: { lat: number; lon: number };
+  distancia_trecho_km?: number;
+  distancia_acumulada_km?: number;
+  google_maps_url?: string;
   posicao_na_carroceria: string;
   situacao: string;
   valor_pedido: number;
@@ -161,6 +184,10 @@ export interface RoteiroEntregaViagem {
   faturamento_total: number;
   total_a_receber_rota: number;
   distancia_estimada_km: number;
+  ponto_origem?: PontoRotaInfo;
+  ponto_retorno?: PontoRotaInfo;
+  pontos_rota?: (PontoRotaInfo | ParadaEntregaItem)[];
+  itinerario_resumido?: string;
   paradas: ParadaEntregaItem[];
 }
 

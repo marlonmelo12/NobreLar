@@ -42,29 +42,57 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // 2. Executa a otimização de despacho (CP-SAT multi-viagens + TSP)
-  const handleExecuteDispatch = useCallback(async () => {
-    if (!orders || orders.length === 0) {
-      alert('Nenhum pedido carregado. Por favor, selecione um arquivo JSON ou CSV na tela de Preparação antes de executar.');
-      return;
-    }
-
+  // 2. Simula a carga de pedidos da API (ficam inicialmente desalocados no Dashboard)
+  const handleSimulateApiLoad = useCallback(async () => {
     setIsProcessing(true);
     try {
-      const result = await api.processOrders(orders, 'Equilibrado', 20.0);
+      const result = await api.simulateLoad();
       setDispatchResult(result);
-      const timeStr = getFormattedNow();
-      setLastExecutionTime(timeStr);
+      setLastExecutionTime(getFormattedNow());
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Falha ao processar despacho de pedidos.';
+      const msg = err instanceof Error ? err.message : 'Falha ao simular carga da API.';
       alert(msg);
       console.error(msg);
     } finally {
       setIsProcessing(false);
     }
-  }, [orders]);
+  }, []);
 
-  // 3. Limpa completamente pedidos e despacho
+  // 3. Executa o controle dos limites e roteirização (CP-SAT multi-viagens + TSP)
+  const handleExecuteDispatch = useCallback(async () => {
+    const hasStagedOrders = (dispatchResult?.resumo?.total_unallocated_orders || 0) > 0 || (dispatchResult?.pedidos_nao_alocados?.length || 0) > 0;
+    const hasUploadedOrders = orders && orders.length > 0;
+
+    if (!hasStagedOrders && !hasUploadedOrders) {
+      // Se nada estiver carregado, simula a carga da API automaticamente primeiro
+      setIsProcessing(true);
+      try {
+        const staged = await api.simulateLoad();
+        setDispatchResult(staged);
+      } catch (err: unknown) {
+        setIsProcessing(false);
+        const msg = err instanceof Error ? err.message : 'Falha ao carregar pedidos.';
+        alert(msg);
+        return;
+      }
+    }
+
+    setIsProcessing(true);
+    try {
+      const result = await api.executeLimits(hasUploadedOrders ? orders : undefined, 'Equilibrado', 20.0);
+      setDispatchResult(result);
+      const timeStr = getFormattedNow();
+      setLastExecutionTime(timeStr);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Falha ao processar controle dos limites e rotas.';
+      alert(msg);
+      console.error(msg);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [orders, dispatchResult]);
+
+  // 4. Limpa completamente pedidos e despacho
   const handleClearDispatch = useCallback(async () => {
     setOrders([]);
     setDispatchResult(null);
@@ -76,7 +104,7 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // 4. Inicialização no Mount (Verifica saúde da API e sincroniza despacho ativo)
+  // 5. Inicialização no Mount (Verifica saúde da API e sincroniza despacho ativo)
   useEffect(() => {
     checkHealthAndSync();
   }, [checkHealthAndSync]);
@@ -101,7 +129,10 @@ export const App: React.FC = () => {
               lastExecutionTime={lastExecutionTime}
               isProcessing={isProcessing}
               onExecute={handleExecuteDispatch}
+              onSimulateApiLoad={handleSimulateApiLoad}
               onClear={handleClearDispatch}
+              onNavigateToLoads={() => setActiveNav('cargas')}
+              onNavigateToRoutes={() => setActiveNav('rotas')}
             />
           )}
 
@@ -110,7 +141,16 @@ export const App: React.FC = () => {
               orders={orders}
               dispatchResult={dispatchResult}
               isProcessing={isProcessing}
-              onUploadCustomOrders={(newOrders) => setOrders(newOrders)}
+              onUploadCustomOrders={async (newOrders) => {
+                setOrders(newOrders);
+                try {
+                  const staged = await api.stageOrders(newOrders);
+                  setDispatchResult(staged);
+                  setLastExecutionTime(getFormattedNow());
+                } catch {
+                  // Mantém as ordens locais
+                }
+              }}
               onExecuteDispatch={handleExecuteDispatch}
               onClear={handleClearDispatch}
               onNavigateToOrders={() => setActiveNav('pedidos')}

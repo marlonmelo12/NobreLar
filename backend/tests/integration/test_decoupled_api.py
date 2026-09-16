@@ -235,3 +235,75 @@ def test_single_order_absorption_and_piso_conversion():
     assert piso_item["unidade"] == "CX"
     assert piso_item["quantidade"] == 11.0
 
+
+def test_simulate_stage_and_execute_limits_with_defined_points():
+    """Valida o fluxo completo de simulação de carga da API, pedidos desalocados e execução dos limites com pontos definidos."""
+    # 1. Simula a carga da API (pedidos inicialmente desalocados)
+    res_sim = client.post("/api/v1/dispatch/simulate")
+    assert res_sim.status_code == 200
+    data_sim = res_sim.json()
+
+    assert data_sim["status"] == "SUCESSO"
+    assert data_sim["resumo"]["total_records_read"] == 5
+    assert data_sim["resumo"]["total_valid_deliveries"] == 3
+    assert data_sim["resumo"]["total_discarded_cleaning"] == 2
+    assert data_sim["resumo"]["total_allocated_orders"] == 0
+    assert data_sim["resumo"]["total_trips_generated"] == 0
+    assert len(data_sim["cargas_caminhao"]) == 0
+    assert len(data_sim["roteiros_entrega"]) == 0
+    assert len(data_sim["pedidos_nao_alocados"]) == 3
+
+    # 2. Verifica que a listagem de pedidos mostra todos os 5 registros (3 não alocados, 2 descartados)
+    res_orders = client.get("/api/v1/dispatch/orders")
+    assert res_orders.status_code == 200
+    data_orders = res_orders.json()
+    assert data_orders["total"] == 5
+    assert data_orders["total_alocados"] == 0
+    assert data_orders["total_nao_alocados"] == 3
+    assert data_orders["total_descartados"] == 2
+
+    # 3. Executa o controle dos limites e roteirização sobre os pedidos carregados
+    res_exec = client.post("/api/v1/dispatch/execute-limits")
+    assert res_exec.status_code == 200
+    data_exec = res_exec.json()
+
+    assert data_exec["status"] == "SUCESSO"
+    assert data_exec["resumo"]["total_allocated_orders"] == 3
+    assert data_exec["resumo"]["total_trips_generated"] >= 1
+    assert len(data_exec["cargas_caminhao"]) >= 1
+    assert len(data_exec["roteiros_entrega"]) >= 1
+
+    # 4. Valida a definição dos pontos e distâncias nas rotas
+    primeiro_roteiro = data_exec["roteiros_entrega"][0]
+    assert "ponto_origem" in primeiro_roteiro
+    assert primeiro_roteiro["ponto_origem"]["ponto_numero"] == 0
+    assert primeiro_roteiro["ponto_origem"]["tipo_ponto"] == "ORIGEM"
+    assert primeiro_roteiro["ponto_origem"]["cidade"] == "CRATEUS"
+    assert "latitude" in primeiro_roteiro["ponto_origem"]
+    assert "longitude" in primeiro_roteiro["ponto_origem"]
+
+    assert "ponto_retorno" in primeiro_roteiro
+    assert primeiro_roteiro["ponto_retorno"]["tipo_ponto"] == "RETORNO"
+    assert "itinerario_resumido" in primeiro_roteiro
+    assert "CD Crateús" in primeiro_roteiro["itinerario_resumido"]
+
+    # Valida cada parada de entrega com coordenadas e distâncias calculadas
+    for parada in primeiro_roteiro["paradas"]:
+        assert "ponto_numero" in parada
+        assert parada["ponto_numero"] >= 1
+        assert "latitude" in parada
+        assert "longitude" in parada
+        assert "distancia_trecho_km" in parada
+        assert "distancia_acumulada_km" in parada
+        assert "google_maps_url" in parada
+        assert len(parada["itens"]) > 0
+
+    # Valida pedido com cobrança na entrega (L1260902)
+    todas_paradas = [p for r in data_exec["roteiros_entrega"] for p in r["paradas"]]
+    ped_cobrar = next((p for p in todas_paradas if p["pedido"] == "L1260902"), None)
+    if ped_cobrar:
+        assert ped_cobrar["status_pagamento"] == "A RECEBER"
+        assert ped_cobrar["valor_a_receber"] == 2150.00
+        assert ped_cobrar["alerta_cobranca"] is not None
+
+

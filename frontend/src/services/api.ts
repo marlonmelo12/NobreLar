@@ -60,7 +60,7 @@ class ApiService {
   }
 
   /**
-   * Envia o lote JSON de pedidos faturados para processamento.
+   * Envia o lote JSON de pedidos faturados para processamento imediato.
    * Endpoint ÚNICO POST.
    */
   async processOrders(
@@ -75,6 +75,54 @@ class ApiService {
         perfil_otimizacao: perfilOtimizacao,
         tempo_limite_segundos: tempoLimiteSegundos,
       }),
+    });
+  }
+
+  /**
+   * Simula a carga de pedidos da API (ficam inicialmente desalocados no Dashboard).
+   */
+  async simulateLoad(pedidos?: DecoupledOrderInput[]): Promise<DecoupledDispatchResponse> {
+    return this.request<DecoupledDispatchResponse>('/api/v1/dispatch/simulate', {
+      method: 'POST',
+      body: pedidos && pedidos.length > 0 ? JSON.stringify({ pedidos }) : JSON.stringify({}),
+    });
+  }
+
+  /**
+   * Armazena pedidos em lote em estado desalocado/staged.
+   */
+  async stageOrders(
+    pedidos: DecoupledOrderInput[],
+    perfilOtimizacao = 'Equilibrado',
+    tempoLimiteSegundos = 20.0
+  ): Promise<DecoupledDispatchResponse> {
+    return this.request<DecoupledDispatchResponse>('/api/v1/dispatch/stage', {
+      method: 'POST',
+      body: JSON.stringify({
+        pedidos,
+        perfil_otimizacao: perfilOtimizacao,
+        tempo_limite_segundos: tempoLimiteSegundos,
+      }),
+    });
+  }
+
+  /**
+   * Executa o controle dos limites e roteirização sobre os pedidos desalocados.
+   */
+  async executeLimits(
+    pedidos?: DecoupledOrderInput[],
+    perfilOtimizacao = 'Equilibrado',
+    tempoLimiteSegundos = 20.0
+  ): Promise<DecoupledDispatchResponse> {
+    return this.request<DecoupledDispatchResponse>('/api/v1/dispatch/execute-limits', {
+      method: 'POST',
+      body: pedidos && pedidos.length > 0
+        ? JSON.stringify({
+            pedidos,
+            perfil_otimizacao: perfilOtimizacao,
+            tempo_limite_segundos: tempoLimiteSegundos,
+          })
+        : JSON.stringify({}),
     });
   }
 

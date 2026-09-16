@@ -208,8 +208,52 @@ async function runTests() {
     }
   });
 
-  // 10. POST Limpeza de Estado
-  await test('10. POST /api/v1/dispatch/clear (Limpeza do Estado de Teste)', async () => {
+  // 10. Simulação de Carga da API (inicialmente desalocados)
+  await test('10. POST /api/v1/dispatch/simulate (Simulação de Carga da API Desalocada)', async () => {
+    const res = await fetch(`${API_BASE}/api/v1/dispatch/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    if (data.status !== 'SUCESSO') throw new Error(`Status inesperado: ${data.status}`);
+    if (data.resumo.total_records_read !== 5) throw new Error(`Esperado 5 pedidos, recebido ${data.resumo.total_records_read}`);
+    if (data.resumo.total_allocated_orders !== 0) throw new Error('Pedidos devem iniciar desalocados');
+    if (data.resumo.total_unallocated_orders !== 3) throw new Error('Esperado 3 pedidos validos desalocados');
+    if (data.resumo.total_discarded_cleaning !== 2) throw new Error('Esperado 2 descartes (balcao/cancelado)');
+  });
+
+  // 11. Execução do Controle de Limites e Roteirização com Definição de Pontos
+  await test('11. POST /api/v1/dispatch/execute-limits (Controle de Limites e Definição de Pontos TSP)', async () => {
+    const res = await fetch(`${API_BASE}/api/v1/dispatch/execute-limits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    if (data.status !== 'SUCESSO') throw new Error(`Status inesperado: ${data.status}`);
+    if (data.resumo.total_allocated_orders !== 3) throw new Error(`Esperado 3 pedidos alocados, recebido ${data.resumo.total_allocated_orders}`);
+    if (!data.roteiros_entrega || data.roteiros_entrega.length === 0) throw new Error('Nenhum roteiro gerado');
+
+    const rota1 = data.roteiros_entrega[0];
+    if (!rota1.ponto_origem || rota1.ponto_origem.ponto_numero !== 0) {
+      throw new Error('Ponto 0 de origem do CD ausente ou incorreto');
+    }
+    if (!rota1.ponto_retorno || rota1.ponto_retorno.tipo_ponto !== 'RETORNO') {
+      throw new Error('Ponto de retorno ao CD ausente');
+    }
+    if (!rota1.itinerario_resumido || !rota1.itinerario_resumido.includes('CD Crateús')) {
+      throw new Error('Itinerário resumido ausente');
+    }
+
+    const parada1 = rota1.paradas[0];
+    if (parada1.ponto_numero === undefined || parada1.latitude === undefined || parada1.longitude === undefined) {
+      throw new Error('Parada sem definição geográfica de ponto');
+    }
+  });
+
+  // 12. POST Limpeza de Estado
+  await test('12. POST /api/v1/dispatch/clear (Limpeza do Estado de Teste)', async () => {
     const res = await fetch(`${API_BASE}/api/v1/dispatch/clear`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

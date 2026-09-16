@@ -30,6 +30,7 @@ from app.services.parsers import (
 from app.services.cleaning import CleaningService
 from app.services.cubagem_service import CubagemService
 from app.core.geo_constants import DEPOT_COORDINATES, REGION_COORDINATES_CACHE
+from app.services.distance_matrix import haversine_road_distance_km
 from app.services.optimizer_cpsat import solve_load_allocation
 from app.services.tsp_solver import solve_tsp
 from app.services.pre_processor import split_overweight_orders
@@ -182,28 +183,88 @@ class DailyDispatchPipeline:
                 depot_lat, depot_lon = DEPOT_COORDINATES["lat"], DEPOT_COORDINATES["lon"]
                 locations = [(depot_lat, depot_lon)]
                 for o in allocated_orders:
-                    coords = REGION_COORDINATES_CACHE.get(o["city_name"], (depot_lat, depot_lon))
+                    coords = (o.get("latitude", depot_lat), o.get("longitude", depot_lon))
                     locations.append(coords)
 
                 tsp_res = solve_tsp(locations, depot_index=0, roundtrip=True)
                 delivery_stops = tsp_res["delivery_order"]
 
-                order_id_to_delivery_seq = {}
+                # Cálculo ponto a ponto da rota (trechos e acumulado)
+                curr_loc = (depot_lat, depot_lon)
+                accumulated_km = 0.0
+                order_points_meta = {}
+
                 for seq_idx, node_idx in enumerate(delivery_stops, start=1):
                     if 1 <= node_idx <= len(allocated_orders):
-                        ord_id = allocated_orders[node_idx - 1]["id"]
-                        order_id_to_delivery_seq[ord_id] = seq_idx
+                        ord_obj = allocated_orders[node_idx - 1]
+                        order_loc = locations[node_idx]
+                        leg_km = haversine_road_distance_km(curr_loc, order_loc)
+                        accumulated_km += leg_km
+                        curr_loc = order_loc
+                        order_points_meta[ord_obj["id"]] = {
+                            "ponto_numero": seq_idx,
+                            "delivery_order": seq_idx,
+                            "distancia_trecho_km": leg_km,
+                            "distancia_acumulada_km": round(accumulated_km, 2),
+                            "latitude": order_loc[0],
+                            "longitude": order_loc[1],
+                            "coordenadas": {"lat": order_loc[0], "lon": order_loc[1]},
+                            "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={order_loc[0]},{order_loc[1]}"
+                        }
+
+                return_leg_km = haversine_road_distance_km(curr_loc, (depot_lat, depot_lon))
+                total_route_km = round(accumulated_km + return_leg_km, 2)
+                if total_route_km == 0.0 and tsp_res.get("total_distance_km", 0.0) > 0.0:
+                    total_route_km = tsp_res.get("total_distance_km", 0.0)
+
+                ponto_origem = {
+                    "ponto_numero": 0,
+                    "tipo_ponto": "ORIGEM",
+                    "nome": DEPOT_COORDINATES["name"],
+                    "cidade": DEPOT_COORDINATES["city"],
+                    "endereco": DEPOT_COORDINATES["address"],
+                    "latitude": depot_lat,
+                    "longitude": depot_lon,
+                    "coordenadas": {"lat": depot_lat, "lon": depot_lon},
+                    "distancia_trecho_km": 0.0,
+                    "distancia_acumulada_km": 0.0,
+                    "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={depot_lat},{depot_lon}",
+                    "acao": "Carregamento e conferência na doca de expedição (LIFO)"
+                }
+
+                ponto_retorno = {
+                    "ponto_numero": len(delivery_stops) + 1,
+                    "tipo_ponto": "RETORNO",
+                    "nome": DEPOT_COORDINATES["name"],
+                    "cidade": DEPOT_COORDINATES["city"],
+                    "endereco": DEPOT_COORDINATES["address"],
+                    "latitude": depot_lat,
+                    "longitude": depot_lon,
+                    "coordenadas": {"lat": depot_lat, "lon": depot_lon},
+                    "distancia_trecho_km": return_leg_km,
+                    "distancia_acumulada_km": total_route_km,
+                    "google_maps_url": f"https://www.google.com/maps/search/?api=1&query={depot_lat},{depot_lon}",
+                    "acao": "Retorno ao CD Matriz Crateús e prestação de contas"
+                }
 
                 total_allocated = len(allocated_orders)
                 routed_items = []
                 for o in allocated_orders:
-                    deliv_seq = order_id_to_delivery_seq.get(o["id"], 1)
+                    meta = order_points_meta.get(o["id"], {})
+                    deliv_seq = meta.get("delivery_order", 1)
                     loading_seq = total_allocated - deliv_seq + 1
 
                     routed_items.append({
                         **o,
                         "delivery_order": deliv_seq,
                         "loading_order": loading_seq,
+                        "ponto_numero": deliv_seq,
+                        "latitude": meta.get("latitude", o.get("latitude", depot_lat)),
+                        "longitude": meta.get("longitude", o.get("longitude", depot_lon)),
+                        "coordenadas": meta.get("coordenadas", o.get("coordenadas", {"lat": depot_lat, "lon": depot_lon})),
+                        "distancia_trecho_km": meta.get("distancia_trecho_km", 0.0),
+                        "distancia_acumulada_km": meta.get("distancia_acumulada_km", 0.0),
+                        "google_maps_url": meta.get("google_maps_url"),
                         "posicao_carroceria": None,
                         "posicao_na_carroceria": None,
                     })
@@ -243,7 +304,9 @@ class DailyDispatchPipeline:
                     "limiting_resource": "VOLUME" if solve_res["volume_occupancy_pct"] >= solve_res["weight_occupancy_pct"] else "PESO",
                     "solver_status": solve_res["status"],
                     "solve_duration_ms": solve_res["solve_duration_ms"],
-                    "estimated_tortuosity_distance_km": tsp_res.get("total_distance_km", 0.0),
+                    "estimated_tortuosity_distance_km": total_route_km,
+                    "ponto_origem": ponto_origem,
+                    "ponto_retorno": ponto_retorno,
                     "is_valid": is_valid,
                     "validation_errors": validation_errors,
                     "items": routed_items,
@@ -348,6 +411,19 @@ class DailyDispatchPipeline:
         customer = row_dict.get("cliente") or row_dict.get("Cliente")
         seller = row_dict.get("vendedor") or row_dict.get("Vendedor")
 
+        # Coordenadas geográficas (caso venham explícitas no JSON ou fallback do cache regional)
+        lat_input = row_dict.get("latitude") if row_dict.get("latitude") is not None else row_dict.get("lat")
+        lon_input = row_dict.get("longitude") if row_dict.get("longitude") is not None else (row_dict.get("lon") or row_dict.get("lng"))
+        custom_coords = None
+        if lat_input is not None and lon_input is not None:
+            try:
+                custom_coords = (float(lat_input), float(lon_input))
+            except (ValueError, TypeError):
+                custom_coords = None
+
+        fallback_coords = REGION_COORDINATES_CACHE.get(city_raw, (DEPOT_COORDINATES["lat"], DEPOT_COORDINATES["lon"]))
+        final_coords = custom_coords or fallback_coords
+
         # 2. Processamento dos Itens e Cubagem Técnica
         raw_items = row_dict.get("itens") or row_dict.get("items") or row_dict.get("Itens_Resumo") or ""
         items_computed: List[Dict[str, Any]] = []
@@ -429,6 +505,9 @@ class DailyDispatchPipeline:
             "formatted_address": raw_addr,
             "payment_on_delivery": "A RECEBER" if is_collect else None,
             "sale_frequency": 1,
+            "latitude": final_coords[0],
+            "longitude": final_coords[1],
+            "coordenadas": {"lat": final_coords[0], "lon": final_coords[1]},
             "items": items_computed,  # DRILL-DOWN PRESERVADO!
         }
 
@@ -504,12 +583,20 @@ class DailyDispatchPipeline:
                     total_receber += val
 
                 paradas.append({
+                    "ponto_numero": it.get("ponto_numero", it.get("delivery_order", 1)),
                     "parada": it.get("delivery_order", 1),
+                    "tipo_ponto": "ENTREGA",
                     "pedido": it["id"],
                     "external_id": it.get("external_id", it["id"]),
                     "cliente": it.get("customer"),
                     "cidade": it.get("city_name"),
                     "endereco_completo": it.get("formatted_address") or it.get("address_line") or it.get("city_name"),
+                    "latitude": it.get("latitude", 0.0),
+                    "longitude": it.get("longitude", 0.0),
+                    "coordenadas": it.get("coordenadas", {"lat": it.get("latitude", 0.0), "lon": it.get("longitude", 0.0)}),
+                    "distancia_trecho_km": it.get("distancia_trecho_km", 0.0),
+                    "distancia_acumulada_km": it.get("distancia_acumulada_km", 0.0),
+                    "google_maps_url": it.get("google_maps_url") or f"https://www.google.com/maps/search/?api=1&query={it.get('latitude', 0.0)},{it.get('longitude', 0.0)}",
                     "posicao_na_carroceria": None,
                     "situacao": it.get("situacao", "NORMAL"),
                     "valor_pedido": val,
@@ -521,6 +608,15 @@ class DailyDispatchPipeline:
                     "possui_itens_6m": False,
                     "itens": it.get("items", [])  # DRILL-DOWN ANINHADO
                 })
+
+            p_origem = t.get("ponto_origem")
+            p_retorno = t.get("ponto_retorno")
+            pontos_completos = ([p_origem] if p_origem else []) + paradas + ([p_retorno] if p_retorno else [])
+            
+            itinerario_str = "CD Crateús"
+            if paradas:
+                itinerario_str += " ➔ " + " ➔ ".join(f"Ponto {p['parada']}: {p.get('cliente') or 'Cliente'} ({p['cidade']})" for p in paradas)
+            itinerario_str += " ➔ Retorno CD Crateús"
 
             formatted.append({
                 "viagem_id": t["trip_id"],
@@ -538,6 +634,10 @@ class DailyDispatchPipeline:
                 "faturamento_total": t["total_value"],
                 "total_a_receber_rota": round(total_receber, 2),
                 "distancia_estimada_km": t.get("estimated_tortuosity_distance_km", 0.0),
+                "ponto_origem": p_origem,
+                "ponto_retorno": p_retorno,
+                "pontos_rota": pontos_completos,
+                "itinerario_resumido": itinerario_str,
                 "paradas": paradas
             })
         return formatted
