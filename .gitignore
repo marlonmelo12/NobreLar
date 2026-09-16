@@ -1,4 +1,10 @@
-# Python
+# ==============================================================================
+# NobreLOG IA - Git Ignore Configuration
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Python & Ambientes Virtuais
+# ------------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
@@ -7,6 +13,9 @@ __pycache__/
 env/
 venv/
 .venv/
+ENV/
+env.bak/
+venv.bak/
 build/
 develop-eggs/
 dist/
@@ -22,11 +31,59 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-.pytest_cache/
-*.db
-*.sqlite3
+*.manifest
+*.spec
 
-# Node / React
+# ------------------------------------------------------------------------------
+# 2. Testes, Cobertura e Cache
+# ------------------------------------------------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+typeguard_reports/
+
+# ------------------------------------------------------------------------------
+# 3. Bancos de Dados e Arquivos de Execução Local
+# ------------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+test_*.db
+nobrelog.db
+
+# ------------------------------------------------------------------------------
+# 4. Arquivos Gerados de Relatórios e PDFs
+# ------------------------------------------------------------------------------
+*.pdf
+data/*.pdf
+data/reports/
+reports/*.pdf
+*.xlsx
+*.xls
+*.csv.bak
+
+# Exceção: Mocks e CSVs canônicos rastreados no repositório
+!data/raw/*.csv
+!data/raw/*.json
+
+# ------------------------------------------------------------------------------
+# 5. Variáveis de Ambiente e Credenciais
+# ------------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# ------------------------------------------------------------------------------
+# 6. Frontend / Node / Frameworks (React, Vue, Vite, Next.js)
+# ------------------------------------------------------------------------------
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -34,12 +91,39 @@ yarn-error.log*
 .pnpm-debug.log*
 dist/
 dist-ssr/
+out/
+.next/
+.nuxt/
+.vuepress/dist
+.turbo/
 *.local
 
-# Editor & OS
+# ------------------------------------------------------------------------------
+# 7. Editores, IDEs e Sistema Operacional
+# ------------------------------------------------------------------------------
 .vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
+*~
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
+
+# ------------------------------------------------------------------------------
+# 8. Logs e Arquivos Temporários
+# ------------------------------------------------------------------------------
+*.log
+logs/
+temp/
+tmp/
+*.tmp
+*.temp
+docker-compose.override.yml
