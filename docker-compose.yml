@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nobrelog_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./nobrelog.db
+      - SECRET_KEY=nobrelog-ia-secret-key-prod-crateus-2026
+      - SOLVER_TIME_LIMIT_SECONDS=30.0
+      - SOLVER_NUM_SEARCH_WORKERS=8
+    volumes:
+      - ./data:/data
+      - backend_data:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  backend_data:
