@@ -7,7 +7,6 @@ import { VehiclesView } from './components/views/VehiclesView';
 import { HistoryView } from './components/views/HistoryView';
 import { api } from './services/api';
 import { DecoupledOrderInput, DecoupledDispatchResponse } from './types/dispatch';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [activeNav, setActiveNav] = useState<NavItemKey>('dashboard');
@@ -16,10 +15,6 @@ export const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastExecutionTime, setLastExecutionTime] = useState<string | null>(null);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
-  const [notification, setNotification] = useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(null);
 
   // Formata data e hora para o padrão do Figma: HH:mm DD/MM/AAAA
   const getFormattedNow = () => {
@@ -41,7 +36,6 @@ export const App: React.FC = () => {
   // 2. Executa a otimização de despacho (CP-SAT multi-viagens + TSP)
   const handleExecuteDispatch = useCallback(async () => {
     setIsProcessing(true);
-    setNotification(null);
 
     try {
       let ordersToProcess = orders;
@@ -54,13 +48,9 @@ export const App: React.FC = () => {
       setDispatchResult(result);
       const timeStr = getFormattedNow();
       setLastExecutionTime(timeStr);
-      setNotification({
-        type: 'success',
-        message: `Otimização concluída com sucesso! ${result.resumo.total_trips_generated} viagens geradas com ${result.resumo.total_allocated_orders} pedidos alocados.`,
-      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao processar despacho de pedidos.';
-      setNotification({ type: 'error', message: msg });
+      console.error(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -69,18 +59,13 @@ export const App: React.FC = () => {
   // 3. Carrega o mock oficial de 30 pedidos
   const handleLoadMock = useCallback(async () => {
     setIsProcessing(true);
-    setNotification(null);
 
     try {
       const mock = await api.fetchMockOrders();
       setOrders(mock);
-      setNotification({
-        type: 'success',
-        message: `Mock oficial carregado com sucesso (${mock.length} pedidos)!`,
-      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao carregar pedidos mock.';
-      setNotification({ type: 'error', message: msg });
+      console.error(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -118,33 +103,6 @@ export const App: React.FC = () => {
 
       {/* Área Principal de Conteúdo */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto relative">
-        {/* Banner de Notificação Flutuante */}
-        {notification && (
-          <div
-            className={`mx-6 mt-4 p-3.5 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-sm transition-all animate-fadeIn ${
-              notification.type === 'success'
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                : 'bg-rose-50 border-rose-300 text-rose-900'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              {notification.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-rose-600" />
-              )}
-              <span>{notification.message}</span>
-            </div>
-
-            <button
-              onClick={() => setNotification(null)}
-              className="text-slate-400 hover:text-slate-700 ml-4"
-            >
-              &times;
-            </button>
-          </div>
-        )}
-
         {/* Renderização da Tela Ativa */}
         <div className="flex-1">
           {activeNav === 'dashboard' && (

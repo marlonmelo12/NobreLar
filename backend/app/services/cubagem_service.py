@@ -72,9 +72,8 @@ class CubagemService:
                     except ValueError:
                         m2_per_box = 2.30
 
-                # Identifica peças de 6 metros no catálogo
-                d_upper = desc.upper()
-                has_long = any(k in d_upper for k in ['6M', '6 METROS', '6000MM', 'CANO', 'TUBO', 'TRELICA'])
+                # Regra de peças de 6 metros desativada para implementação futura
+                has_long = False
 
                 self.catalog[code] = {
                     "code": code,
@@ -84,7 +83,7 @@ class CubagemService:
                     "m2_per_box": m2_per_box,
                     "estimated": dado_estimado,
                     "source": "ranking_top85",
-                    "has_long_items": has_long,
+                    "has_long_items": False,
                 }
 
             logger.info(f"Catálogo técnico Top 85 carregado com {len(self.catalog)} produtos.")
@@ -100,12 +99,12 @@ class CubagemService:
         """
         d = product_desc.upper()
 
-        # 1. Tubulações e Peças Lineares de 6 metros
+        # 1. Tubulações e Peças Lineares (regra de 6 metros desativada para implementação futura)
         if any(k in d for k in ['CANO', 'TUBO', 'TRELICA', 'ESPACADOR 6M', 'FORRO NOVAFORMA', '6000MM', 'BARRA DE FERRO']):
             return {
                 "unit_weight_kg": 0.50,
                 "unit_volume_m3": 0.0080,
-                "has_long_items": True,
+                "has_long_items": False,
                 "source": "heuristica_longo",
                 "estimated": True,
             }
@@ -215,8 +214,18 @@ class CubagemService:
 
         # Conversão de piso (m² comercializados -> caixas inteiras arredondadas para cima)
         effective_qty = quantity
-        if unit.upper() in ["MT", "M2", "M²"] and m2_box and m2_box > 0:
-            effective_qty = float(math.ceil(round(quantity / m2_box, 6)))
+        effective_unit = unit.upper() if unit else "UN"
+        is_piso = (
+            effective_unit in ["MT", "M2", "M²"] or
+            any(k in product_desc.upper() for k in ['PISO', 'PORC', 'REV', 'CERBRAS', 'POINTER', 'KARINA', 'REVESTIMENTO'])
+        )
+
+        if is_piso:
+            box_factor = m2_box if (m2_box and m2_box > 0) else 2.30
+            effective_qty = float(math.ceil(round(quantity / box_factor, 6)))
+            if effective_qty < 1.0 and quantity > 0:
+                effective_qty = 1.0
+            effective_unit = "CX"
 
         tot_w = round(effective_qty * unit_w, 2)
         tot_v = round(effective_qty * unit_v, 4)
@@ -226,6 +235,7 @@ class CubagemService:
             "product_desc": product_desc,
             "quantity": quantity,
             "effective_quantity": effective_qty,
+            "effective_unit": effective_unit,
             "unit": unit,
             "unit_weight_kg": unit_w,
             "unit_volume_m3": unit_v,
@@ -233,7 +243,7 @@ class CubagemService:
             "computed_volume_m3": tot_v,
             "cubing_source": source,
             "is_estimated": is_est,
-            "has_long_items": has_long,
+            "has_long_items": False,
         }
 
     def compute_order_cubing(self, items: list) -> Dict[str, Any]:

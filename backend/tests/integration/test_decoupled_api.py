@@ -165,3 +165,43 @@ def test_get_endpoints_and_pdf():
     assert res_pdf_route.status_code == 200
     assert res_pdf_route.headers["content-type"] == "application/pdf"
     assert res_pdf_route.content.startswith(b"%PDF-")
+
+
+def test_single_order_absorption_and_piso_conversion():
+    """Valida absorção de pedido único diretamente via POST e conversão de m² de piso para caixas CX."""
+    single_order = {
+        "id": "PED-UNICO-01",
+        "data": "16/09/2026",
+        "cliente": "Cliente Teste Único",
+        "cidade": "CRATEUS",
+        "endereco": "Rua Central, 100",
+        "valor": 500.0,
+        "urgente": False,
+        "situacao": "NORMAL",
+        "itens": [
+            {
+                "codigo": "21243",
+                "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 A",
+                "quantidade": 25.30,
+                "unidade": "MT",
+                "preco_unitario": 20.0
+            }
+        ]
+    }
+    res = client.post("/api/v1/dispatch/orders", json=single_order)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "SUCESSO"
+    assert data["resumo"]["total_allocated_orders"] == 1
+    assert len(data["cargas_caminhao"]) == 1
+    trip = data["cargas_caminhao"][0]
+    assert trip["viagem_numero"] == 1
+    assert len(trip["pedidos_carroceria"]) == 1
+    ped = trip["pedidos_carroceria"][0]
+    assert ped["possui_itens_6m"] is False
+    assert ped["posicao_carroceria"] is None
+    assert len(ped["itens"]) == 1
+    piso_item = ped["itens"][0]
+    assert piso_item["unidade"] == "CX"
+    assert piso_item["quantidade"] == 11.0
+

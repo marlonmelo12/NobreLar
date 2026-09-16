@@ -33,6 +33,7 @@ def test_piso_conversion_m2_to_boxes(cubagem_svc):
         unit="MT"
     )
     assert res["effective_quantity"] == 11.0
+    assert res["effective_unit"] == "CX"
     assert res["computed_weight_kg"] == round(11.0 * 28.28, 2)
 
 
@@ -45,6 +46,7 @@ def test_piso_conversion_fractional_ceil(cubagem_svc):
         unit="MT"
     )
     assert res["effective_quantity"] == 2.0
+    assert res["effective_unit"] == "CX"
 
 
 def test_fallback_heuristic_connections(cubagem_svc):
@@ -62,13 +64,13 @@ def test_fallback_heuristic_connections(cubagem_svc):
     assert res["computed_weight_kg"] == 1.0
 
 
-def test_detection_of_long_items(cubagem_svc):
-    """Valida identificação de tubos longos de 6 metros (RF-006-A)."""
+def test_deactivation_of_long_items_rule(cubagem_svc):
+    """Valida que a regra de 6 metros está desativada para implementação futura."""
     res = cubagem_svc.compute_item_cubing(
         product_code="88888",
         product_desc="TUBO ESGOTO 100MM BARRA 6 METROS KRONA",
         quantity=5.0,
         unit="UN"
     )
-    assert res["has_long_items"] is True
+    assert res["has_long_items"] is False
     assert res["cubing_source"] == "heuristica_longo"

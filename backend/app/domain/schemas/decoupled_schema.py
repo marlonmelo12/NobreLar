@@ -87,7 +87,7 @@ class TruckLoadOrderItem(BaseModel):
     pedido: str
     external_id: str
     ordem_carregamento: int
-    posicao_carroceria: str  # ex: "Frente da Carroceria (Fundo do Assoalho)", "Traseira da Carroceria"
+    posicao_carroceria: Optional[str] = None
     ordem_entrega_prevista: int
     cliente: Optional[str] = None
     cidade: str
@@ -137,7 +137,7 @@ class DeliveryRouteStopItem(BaseModel):
     cliente: Optional[str] = None
     cidade: str
     endereco_completo: str
-    posicao_na_carroceria: str
+    posicao_na_carroceria: Optional[str] = None
     situacao: str = Field("NORMAL", description="Situação operacional: NORMAL, URGENTE, CARRO HORARIO, etc.")
     valor_pedido: float
     status_pagamento: str  # "QUITADO" ou "A RECEBER"

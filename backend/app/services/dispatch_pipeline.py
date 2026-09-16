@@ -194,30 +194,15 @@ class DailyDispatchPipeline:
                     deliv_seq = order_id_to_delivery_seq.get(o["id"], 1)
                     loading_seq = total_allocated - deliv_seq + 1
 
-                    # Posicionamento físico na Carroceria Aberta
-                    if loading_seq == 1:
-                        pos_carroceria = "Frente da Carroceria (Fundo do Assoalho)"
-                    elif loading_seq == total_allocated:
-                        pos_carroceria = "Traseira da Carroceria (Acesso Imediato)"
-                    else:
-                        pos_carroceria = f"{loading_seq}º Carregado (Meio da Carroceria)"
-
-                    if deliv_seq == 1:
-                        pos_descarga = "Traseira da Carroceria (Acesso Imediato)"
-                    elif deliv_seq == total_allocated:
-                        pos_descarga = "Frente da Carroceria (Último Descarregamento)"
-                    else:
-                        pos_descarga = f"{deliv_seq}ª Descarga (Meio da Carroceria)"
-
                     routed_items.append({
                         **o,
                         "delivery_order": deliv_seq,
                         "loading_order": loading_seq,
-                        "posicao_carroceria": pos_carroceria,
-                        "posicao_na_carroceria": pos_descarga,
+                        "posicao_carroceria": None,
+                        "posicao_na_carroceria": None,
                     })
 
-                # Ordena pela sequência física de estivagem na carroceria aberta
+                # Ordena pela sequência física de carregamento
                 routed_items.sort(key=lambda x: x["loading_order"])
 
                 # Validação independente de integridade física e territorial
@@ -229,7 +214,7 @@ class DailyDispatchPipeline:
                     allows_long_items=assigned_vehicle["allows_long_items"]
                 )
 
-                trip_title = f"Viagem {trip_idx}" if trip_idx > 1 else "Viagem 1 (Primeira Saída)"
+                trip_title = f"Viagem {trip_idx}"
                 trip_record = {
                     "trip_id": f"{axis_id}-V{trip_idx}",
                     "trip_number": trip_idx,
@@ -377,38 +362,42 @@ class DailyDispatchPipeline:
                     unit = str(it.get("unidade", it.get("unit", "UN"))).strip().upper()
                     price = float(it.get("preco_unitario", it.get("unit_price", 0.0)))
                     c_res = self.cubagem.compute_item_cubing(code, desc, qtd, unit)
+                    final_qtd = c_res.get("effective_quantity", qtd)
+                    final_unit = c_res.get("effective_unit", unit)
                     items_computed.append({
                         "codigo": code,
                         "descricao": desc or f"PRODUTO {code}",
-                        "quantidade": qtd,
-                        "unidade": unit,
+                        "quantidade": final_qtd,
+                        "unidade": final_unit,
                         "preco_unitario": price,
                         "peso_unitario_kg": c_res["unit_weight_kg"],
                         "peso_total_kg": c_res["computed_weight_kg"],
                         "volume_total_m3": c_res["computed_volume_m3"],
-                        "e_item_6m": c_res["has_long_items"],
+                        "e_item_6m": False,
                         "cubagem_estimada": c_res["is_estimated"]
                     })
         elif isinstance(raw_items, str) and raw_items.strip():
             parsed = parse_order_items(raw_items)
             for p in parsed:
                 c_res = self.cubagem.compute_item_cubing(p["product_code"], p["product_desc"], p["quantity"], p["unit"])
+                final_qtd = c_res.get("effective_quantity", p["quantity"])
+                final_unit = c_res.get("effective_unit", p["unit"])
                 items_computed.append({
                     "codigo": p["product_code"],
                     "descricao": p["product_desc"],
-                    "quantidade": p["quantity"],
-                    "unidade": p["unit"],
+                    "quantidade": final_qtd,
+                    "unidade": final_unit,
                     "preco_unitario": 0.0,
                     "peso_unitario_kg": c_res["unit_weight_kg"],
                     "peso_total_kg": c_res["computed_weight_kg"],
                     "volume_total_m3": c_res["computed_volume_m3"],
-                    "e_item_6m": c_res["has_long_items"],
+                    "e_item_6m": False,
                     "cubagem_estimada": c_res["is_estimated"]
                 })
 
         total_w = sum(it["peso_total_kg"] for it in items_computed)
         total_v = sum(it["volume_total_m3"] for it in items_computed)
-        has_long = any(it["e_item_6m"] for it in items_computed)
+        has_long = False
 
         order_data = {
             "id": clean_id,
@@ -443,12 +432,7 @@ class DailyDispatchPipeline:
         """Formata viagens para a visão de Carregamento na Carroceria Aberta com drill-down."""
         formatted: List[Dict[str, Any]] = []
         for t in trips:
-            has_long = any(it.get("has_long_items", False) for it in t.get("items", []))
-            alerta = (
-                "Carroceria aberta — Carga com tubos/barras lineares de 6m: fixar com cintas e catracas no assoalho lateral."
-                if has_long else
-                "Carroceria aberta — Distribuir sacarias e pisos sobre o assoalho no eixo traseiro."
-            )
+            alerta = "Carroceria aberta — Distribuir sacarias e pisos sobre o assoalho no eixo traseiro."
 
             pedidos_carroceria = []
             for it in t.get("items", []):
@@ -456,7 +440,7 @@ class DailyDispatchPipeline:
                     "pedido": it["id"],
                     "external_id": it.get("external_id", it["id"]),
                     "ordem_carregamento": it.get("loading_order", 1),
-                    "posicao_carroceria": it.get("posicao_carroceria", "Assoalho da Carroceria"),
+                    "posicao_carroceria": None,
                     "ordem_entrega_prevista": it.get("delivery_order", 1),
                     "cliente": it.get("customer"),
                     "cidade": it.get("city_name"),
@@ -466,7 +450,7 @@ class DailyDispatchPipeline:
                     "volume_total_m3": it.get("total_volume_m3", it.get("volume_m3", 0.0)),
                     "valor_total": it.get("total_value", it.get("value", 0.0)),
                     "urgente": it.get("is_mandatory", False),
-                    "possui_itens_6m": it.get("has_long_items", False),
+                    "possui_itens_6m": False,
                     "pagamento_na_entrega": it.get("payment_on_delivery"),
                     "itens": it.get("items", [])  # DRILL-DOWN ANINHADO
                 })
@@ -520,7 +504,7 @@ class DailyDispatchPipeline:
                     "cliente": it.get("customer"),
                     "cidade": it.get("city_name"),
                     "endereco_completo": it.get("formatted_address") or it.get("address_line") or it.get("city_name"),
-                    "posicao_na_carroceria": it.get("posicao_na_carroceria", "Carroceria Aberta"),
+                    "posicao_na_carroceria": None,
                     "situacao": it.get("situacao", "NORMAL"),
                     "valor_pedido": val,
                     "status_pagamento": "A RECEBER" if is_collect else "QUITADO",
@@ -528,7 +512,7 @@ class DailyDispatchPipeline:
                     "alerta_cobranca": "Exigir comprovante PIX/Dinheiro antes do descarregamento!" if is_collect else None,
                     "peso_total_kg": it.get("total_weight_kg", it.get("weight_kg", 0.0)),
                     "volume_total_m3": it.get("total_volume_m3", it.get("volume_m3", 0.0)),
-                    "possui_itens_6m": it.get("has_long_items", False),
+                    "possui_itens_6m": False,
                     "itens": it.get("items", [])  # DRILL-DOWN ANINHADO
                 })
 
@@ -593,16 +577,15 @@ class DailyDispatchPipeline:
         fleet: List[Dict[str, Any]],
         pending_orders: List[Dict[str, Any]]
     ) -> Optional[Dict[str, Any]]:
-        """Seleciona o caminhão mais adequado para a viagem considerando território e itens longos."""
+        """Seleciona o caminhão mais adequado para a viagem considerando território."""
         is_crateus_urban = (axis_id == "eixo-0-crateus-urbano")
-        has_6m = any(o.get("has_long_items", False) for o in pending_orders)
 
-        if is_crateus_urban and not has_6m:
+        if is_crateus_urban:
             medium_trucks = [v for v in fleet if v.get("restricted_to_crateus", False)]
             if medium_trucks:
                 return medium_trucks[(trip_idx - 1) % len(medium_trucks)]
 
-        large_trucks = [v for v in fleet if not v.get("restricted_to_crateus", False) and v.get("allows_long_items", False)]
+        large_trucks = [v for v in fleet if not v.get("restricted_to_crateus", False)]
         if large_trucks:
             return large_trucks[(trip_idx - 1) % len(large_trucks)]
 
@@ -636,9 +619,6 @@ class DailyDispatchPipeline:
 
             w = ord_obj.get("total_weight_kg", 0.0)
             v = ord_obj.get("total_volume_m3", 0.0)
-
-            if ord_obj.get("has_long_items", False) and not vehicle.get("allows_long_items", False):
-                continue
 
             if accum_w + w <= vehicle["capacity_kg"] and accum_v + v <= vehicle["useful_volume_m3"]:
                 accum_w += w

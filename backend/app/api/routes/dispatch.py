@@ -288,9 +288,9 @@ def get_mock_orders_json():
 
 
 def _extract_batch_orders_and_params(
-    payload: Union[DecoupledBatchRequest, List[DecoupledOrderInput], List[Dict[str, Any]], Dict[str, Any]]
+    payload: Union[DecoupledBatchRequest, DecoupledOrderInput, List[DecoupledOrderInput], List[Dict[str, Any]], Dict[str, Any]]
 ) -> Tuple[List[Dict[str, Any]], str, float]:
-    """Extrai a lista de pedidos brutos e parâmetros a partir de múltiplos formatos JSON suportados."""
+    """Extrai a lista de pedidos brutos e parâmetros a partir de múltiplos formatos JSON suportados (lote ou pedido único)."""
     profile_name = "Equilibrado"
     time_limit = 20.0
 
@@ -298,14 +298,20 @@ def _extract_batch_orders_and_params(
         orders_raw = [o.model_dump(by_alias=True) for o in payload.pedidos]
         profile_name = payload.perfil_otimizacao or profile_name
         time_limit = payload.tempo_limite_segundos or time_limit
+    elif isinstance(payload, DecoupledOrderInput):
+        orders_raw = [payload.model_dump(by_alias=True)]
     elif isinstance(payload, dict):
-        p_list = payload.get("pedidos") or payload.get("orders") or []
-        orders_raw = []
-        for o in p_list:
-            if hasattr(o, "model_dump"):
-                orders_raw.append(o.model_dump(by_alias=True))
-            elif isinstance(o, dict):
-                orders_raw.append(o)
+        p_list = payload.get("pedidos") or payload.get("orders")
+        if p_list is None and ("id" in payload or "itens" in payload or "items" in payload or "cidade" in payload or "pedido" in payload):
+            orders_raw = [payload]
+        else:
+            p_list = p_list or []
+            orders_raw = []
+            for o in p_list:
+                if hasattr(o, "model_dump"):
+                    orders_raw.append(o.model_dump(by_alias=True))
+                elif isinstance(o, dict):
+                    orders_raw.append(o)
         profile_name = payload.get("perfil_otimizacao", profile_name)
         time_limit = float(payload.get("tempo_limite_segundos", time_limit))
     elif isinstance(payload, list):
@@ -335,7 +341,7 @@ def _extract_batch_orders_and_params(
     response_model=DecoupledDispatchResponse
 )
 def submit_and_process_orders_post(
-    payload: Union[DecoupledBatchRequest, List[DecoupledOrderInput], Dict[str, Any], List[Dict[str, Any]]],
+    payload: Union[DecoupledBatchRequest, DecoupledOrderInput, List[DecoupledOrderInput], Dict[str, Any], List[Dict[str, Any]]],
     db: Session = Depends(get_db)
 ):
     """Recebe o JSON estruturado com os pedidos faturados do Frontend/ERP.
