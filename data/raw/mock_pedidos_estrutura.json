@@ -68,6 +68,36 @@
     ]
   },
   {
+    "id": "L12608363",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "ENG. FRANCISCO CAVALCANTE",
+    "cidade": "CRATEUS",
+    "endereco": "Av. Edilberto Frota, 1850, Fátima, CEP 63700-000, Crateús - CE",
+    "valor": 1450.00,
+    "urgente": false,
+    "situacao": "NORMAL",
+    "pagamento_entrega": "A RECEBER",
+    "itens": [
+      {
+        "codigo": "21243",
+        "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 'A'",
+        "quantidade": 25.3,
+        "unidade": "MT",
+        "preco_unitario": 42.00,
+        "subtotal": 1062.60
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 15.0,
+        "unidade": "UN",
+        "preco_unitario": 25.82,
+        "subtotal": 387.40
+      }
+    ]
+  },
+  {
     "id": "L12608401",
     "data": "03/08/2026",
     "vendedor": "MASCILON",
@@ -196,6 +226,74 @@
     ]
   },
   {
+    "id": "L12608405",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "CASA & CONSTRUÇÃO ARARENDÁ",
+    "cidade": "ARARENDA",
+    "endereco": "Av. Vicente Ferreira, 450, Centro, Ararendá - CE",
+    "valor": 3200.00,
+    "urgente": false,
+    "situacao": "PROGRAMADO",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 40.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1520.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 30.0,
+        "unidade": "UN",
+        "preco_unitario": 23.00,
+        "subtotal": 690.00
+      },
+      {
+        "codigo": "10200",
+        "descricao": "TUBO ESGOTO 100MM 6M TIGRE",
+        "quantidade": 9.9,
+        "unidade": "UN",
+        "preco_unitario": 100.00,
+        "subtotal": 990.00
+      }
+    ]
+  },
+  {
+    "id": "L12608406",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "CONSTRUTORA SERRA DA MANTIQUEIRA",
+    "cidade": "ARARENDA",
+    "endereco": "Rua Raimundo Bezerra, 88, Ararendá - CE",
+    "valor": 1600.00,
+    "urgente": false,
+    "situacao": "NORMAL",
+    "pagamento_entrega": "A RECEBER",
+    "itens": [
+      {
+        "codigo": "23717",
+        "descricao": "PISO POINTER PIETRA DI BASALTO PLATINA 60 X 60 EXT RES 100382",
+        "quantidade": 30.0,
+        "unidade": "MT",
+        "preco_unitario": 45.00,
+        "subtotal": 1350.00
+      },
+      {
+        "codigo": "15624",
+        "descricao": "REJ QUARTZOLIT CZ PLATINA - 1KG",
+        "quantidade": 25.0,
+        "unidade": "UN",
+        "preco_unitario": 10.00,
+        "subtotal": 250.00
+      }
+    ]
+  },
+  {
     "id": "L12608501",
     "data": "03/08/2026",
     "vendedor": "CAMILA",
@@ -264,6 +362,504 @@
     ]
   },
   {
+    "id": "L12608503",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "COMERCIAL INHAMUNS MATERIAIS",
+    "cidade": "NOVO ORIENTE",
+    "endereco": "Av. Deocleciano Aragão, 320, Novo Oriente - CE",
+    "valor": 2750.00,
+    "urgente": false,
+    "situacao": "NORMAL",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 50.0,
+        "unidade": "UN",
+        "preco_unitario": 23.00,
+        "subtotal": 1150.00
+      },
+      {
+        "codigo": "23717",
+        "descricao": "PISO POINTER PIETRA DI BASALTO PLATINA 60 X 60 EXT RES 100382",
+        "quantidade": 35.0,
+        "unidade": "MT",
+        "preco_unitario": 45.71,
+        "subtotal": 1600.00
+      }
+    ]
+  },
+  {
+    "id": "L12608504",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "MERCADÃO DA CONSTRUÇÃO QUITERIANÓPOLIS",
+    "cidade": "QUITERIANOPOLIS",
+    "endereco": "Rua Laurindo Gomes, 75, Centro, Quiterianópolis - CE",
+    "valor": 2500.00,
+    "urgente": true,
+    "situacao": "URGENTE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 35.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1330.00
+      },
+      {
+        "codigo": "10200",
+        "descricao": "TUBO ESGOTO 100MM 6M TIGRE",
+        "quantidade": 11.7,
+        "unidade": "UN",
+        "preco_unitario": 100.00,
+        "subtotal": 1170.00
+      }
+    ]
+  },
+  {
+    "id": "L12608201",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "CASA FORTE MATERIAIS NOVA RUSSAS",
+    "cidade": "NOVA RUSSAS",
+    "endereco": "Av. Padre Francisco Rosa, 200, Centro, Nova Russas - CE",
+    "valor": 3200.00,
+    "urgente": true,
+    "situacao": "URGENTE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 50.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1900.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 30.0,
+        "unidade": "UN",
+        "preco_unitario": 23.00,
+        "subtotal": 690.00
+      },
+      {
+        "codigo": "15624",
+        "descricao": "REJ QUARTZOLIT CZ PLATINA - 1KG",
+        "quantidade": 61.0,
+        "unidade": "UN",
+        "preco_unitario": 10.00,
+        "subtotal": 610.00
+      }
+    ]
+  },
+  {
+    "id": "L12608202",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "DEPÓSITO NOVA RUSSAS",
+    "cidade": "NOVA RUSSAS",
+    "endereco": "Rua Coronel Zé Dantas, 140, Nova Russas - CE",
+    "valor": 2150.00,
+    "urgente": false,
+    "situacao": "NORMAL",
+    "pagamento_entrega": "A RECEBER",
+    "itens": [
+      {
+        "codigo": "21243",
+        "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 'A'",
+        "quantidade": 35.0,
+        "unidade": "MT",
+        "preco_unitario": 40.00,
+        "subtotal": 1400.00
+      },
+      {
+        "codigo": "10200",
+        "descricao": "TUBO ESGOTO 100MM 6M TIGRE",
+        "quantidade": 7.5,
+        "unidade": "UN",
+        "preco_unitario": 100.00,
+        "subtotal": 750.00
+      }
+    ]
+  },
+  {
+    "id": "L12608203",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "CONSTRUÇÕES TAMBORIL",
+    "cidade": "TAMBORIL",
+    "endereco": "Rua Vicente Gomes, 78, Centro, Tamboril - CE",
+    "valor": 2650.00,
+    "urgente": false,
+    "situacao": "NORMAL",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 40.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1520.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 25.0,
+        "unidade": "UN",
+        "preco_unitario": 23.00,
+        "subtotal": 575.00
+      },
+      {
+        "codigo": "17170",
+        "descricao": "LATEX FORTEX BRANCO GELO 15L FORTMAIS",
+        "quantidade": 5.0,
+        "unidade": "UN",
+        "preco_unitario": 111.00,
+        "subtotal": 555.00
+      }
+    ]
+  },
+  {
+    "id": "L12608204",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "AGRO & LAR DISTRITO DE SUCESSO",
+    "cidade": "SUCESSO",
+    "endereco": "Av. Principal do Distrito, 12, Sucesso, Tamboril - CE",
+    "valor": 2400.00,
+    "urgente": false,
+    "situacao": "CARRO HORARIO",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 30.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1140.00
+      },
+      {
+        "codigo": "23717",
+        "descricao": "PISO POINTER PIETRA DI BASALTO PLATINA 60 X 60 EXT RES 100382",
+        "quantidade": 28.0,
+        "unidade": "MT",
+        "preco_unitario": 45.00,
+        "subtotal": 1260.00
+      }
+    ]
+  },
+  {
+    "id": "L12608205",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "REFORMA FAZENDA NOVA RUSSAS",
+    "cidade": "FAZENDA",
+    "endereco": "Vila Fazenda, s/n, Zona Rural, Nova Russas - CE",
+    "valor": 1850.00,
+    "urgente": false,
+    "situacao": "TOPIQUE",
+    "pagamento_entrega": "A RECEBER",
+    "itens": [
+      {
+        "codigo": "10310",
+        "descricao": "CAIXA D AGUA 1000L FORTLEV",
+        "quantidade": 1.0,
+        "unidade": "UN",
+        "preco_unitario": 450.00,
+        "subtotal": 450.00
+      },
+      {
+        "codigo": "10200",
+        "descricao": "TUBO ESGOTO 100MM 6M TIGRE",
+        "quantidade": 10.0,
+        "unidade": "UN",
+        "preco_unitario": 100.00,
+        "subtotal": 1000.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 16.0,
+        "unidade": "UN",
+        "preco_unitario": 25.00,
+        "subtotal": 400.00
+      }
+    ]
+  },
+  {
+    "id": "L12608301",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "CONSTRUTORA SUL CEARENSE",
+    "cidade": "INDEPENDENCIA",
+    "endereco": "Rua Cel. José Domingues, 400, Centro, Independência - CE",
+    "valor": 3800.00,
+    "urgente": false,
+    "situacao": "NORMAL",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 60.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 2280.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 40.0,
+        "unidade": "UN",
+        "preco_unitario": 23.00,
+        "subtotal": 920.00
+      },
+      {
+        "codigo": "15624",
+        "descricao": "REJ QUARTZOLIT CZ PLATINA - 1KG",
+        "quantidade": 75.0,
+        "unidade": "UN",
+        "preco_unitario": 8.00,
+        "subtotal": 600.00
+      }
+    ]
+  },
+  {
+    "id": "L12608302",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "COMERCIAL INDEPENDÊNCIA",
+    "cidade": "INDEPENDENCIA",
+    "endereco": "Av. Santana, 155, Independência - CE",
+    "valor": 2850.00,
+    "urgente": true,
+    "situacao": "URGENTE",
+    "pagamento_entrega": "A RECEBER",
+    "itens": [
+      {
+        "codigo": "21243",
+        "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 'A'",
+        "quantidade": 45.0,
+        "unidade": "MT",
+        "preco_unitario": 42.00,
+        "subtotal": 1890.00
+      },
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 25.0,
+        "unidade": "UN",
+        "preco_unitario": 38.40,
+        "subtotal": 960.00
+      }
+    ]
+  },
+  {
+    "id": "L12608303",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "MERCADINHO E REFORMA SÃO JOSÉ",
+    "cidade": "SAO JOSE",
+    "endereco": "Vila de São José, s/n, Zona Rural, Crateús - CE",
+    "valor": 950.00,
+    "urgente": false,
+    "situacao": "PROGRAMADO",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 30.0,
+        "unidade": "UN",
+        "preco_unitario": 23.00,
+        "subtotal": 690.00
+      },
+      {
+        "codigo": "15624",
+        "descricao": "REJ QUARTZOLIT CZ PLATINA - 1KG",
+        "quantidade": 26.0,
+        "unidade": "UN",
+        "preco_unitario": 10.00,
+        "subtotal": 260.00
+      }
+    ]
+  },
+  {
+    "id": "L12608304",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "AGROVILA JATOBÁ CONSTRUÇÃO",
+    "cidade": "JATOBA DOS UMBELINOS",
+    "endereco": "Distrito Jatobá dos Umbelinos, Rua Central, Crateús - CE",
+    "valor": 1700.00,
+    "urgente": false,
+    "situacao": "NORMAL",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 30.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1140.00
+      },
+      {
+        "codigo": "10200",
+        "descricao": "TUBO ESGOTO 100MM 6M TIGRE",
+        "quantidade": 5.6,
+        "unidade": "UN",
+        "preco_unitario": 100.00,
+        "subtotal": 560.00
+      }
+    ]
+  },
+  {
+    "id": "L12608101",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "MATERIAIS BURITI LTDA",
+    "cidade": "BURITI DOS MONTES",
+    "endereco": "Rua Principal, 300, Centro, Buriti dos Montes - PI",
+    "valor": 3900.00,
+    "urgente": true,
+    "situacao": "URGENTE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 50.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1900.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 40.0,
+        "unidade": "UN",
+        "preco_unitario": 23.00,
+        "subtotal": 920.00
+      },
+      {
+        "codigo": "21243",
+        "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 'A'",
+        "quantidade": 26.0,
+        "unidade": "MT",
+        "preco_unitario": 41.53,
+        "subtotal": 1080.00
+      }
+    ]
+  },
+  {
+    "id": "L12608102",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "HIDRO & PIAUÍ COMÉRCIO",
+    "cidade": "BURITI DOS MONTES",
+    "endereco": "Av. Manoel Soares, 50, Buriti dos Montes - PI",
+    "valor": 1650.00,
+    "urgente": false,
+    "situacao": "NORMAL",
+    "pagamento_entrega": "A RECEBER",
+    "itens": [
+      {
+        "codigo": "10200",
+        "descricao": "TUBO ESGOTO 100MM 6M TIGRE",
+        "quantidade": 14.0,
+        "unidade": "UN",
+        "preco_unitario": 100.00,
+        "subtotal": 1400.00
+      },
+      {
+        "codigo": "15624",
+        "descricao": "REJ QUARTZOLIT CZ PLATINA - 1KG",
+        "quantidade": 25.0,
+        "unidade": "UN",
+        "preco_unitario": 10.00,
+        "subtotal": 250.00
+      }
+    ]
+  },
+  {
+    "id": "L12608103",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "DEPÓSITO BARRO VERMELHO",
+    "cidade": "BARRO VERMELHO",
+    "endereco": "Distrito de Barro Vermelho, s/n, Crateús - CE",
+    "valor": 1750.00,
+    "urgente": false,
+    "situacao": "NORMAL",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 30.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1140.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 26.5,
+        "unidade": "UN",
+        "preco_unitario": 23.01,
+        "subtotal": 610.00
+      }
+    ]
+  },
+  {
+    "id": "L12608104",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "COMÉRCIO TUCUNS",
+    "cidade": "TUCUNS",
+    "endereco": "Vila Central de Tucuns, Crateús - CE",
+    "valor": 2300.00,
+    "urgente": false,
+    "situacao": "CARRO HORARIO",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21243",
+        "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 'A'",
+        "quantidade": 35.0,
+        "unidade": "MT",
+        "preco_unitario": 40.00,
+        "subtotal": 1400.00
+      },
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 20.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 760.00
+      },
+      {
+        "codigo": "15624",
+        "descricao": "REJ QUARTZOLIT CZ PLATINA - 1KG",
+        "quantidade": 14.0,
+        "unidade": "UN",
+        "preco_unitario": 10.00,
+        "subtotal": 140.00
+      }
+    ]
+  },
+  {
     "id": "L12608998",
     "data": "03/08/2026",
     "vendedor": "LEONARDO",
@@ -304,6 +900,50 @@
         "unidade": "UN",
         "preco_unitario": 48.00,
         "subtotal": 1200.00
+      }
+    ]
+  },
+  {
+    "id": "L12608997",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "RETIRADA DEPÓSITO IPAPORANGA",
+    "cidade": "IPAPORANGA",
+    "endereco": "Retirada Própria pelo Construtor no Galpão",
+    "valor": 680.00,
+    "urgente": false,
+    "situacao": "RETIRADA",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 25.0,
+        "unidade": "UN",
+        "preco_unitario": 27.20,
+        "subtotal": 680.00
+      }
+    ]
+  },
+  {
+    "id": "L12608996",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "CANCELADO NOVA RUSSAS (FALTA DE ESTOQUE)",
+    "cidade": "NOVA RUSSAS",
+    "endereco": "Rua Central, 50, Nova Russas - CE",
+    "valor": 1900.00,
+    "urgente": false,
+    "situacao": "CANCELADO",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 50.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1900.00
       }
     ]
   }

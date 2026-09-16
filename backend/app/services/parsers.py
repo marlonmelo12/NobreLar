@@ -19,13 +19,17 @@ ITEM_REGEX = re.compile(
 
 
 def clean_currency(val: Any) -> float:
-    """Converte strings de moeda brasileira (R$ 1.234,56) para float."""
+    """Converte strings de moeda brasileira (R$ 1.234,56), floats ou inteiros para float."""
     if val is None:
         return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
     s_val = str(val).strip()
     if not s_val or s_val.lower() == "nan" or s_val == "":
         return 0.0
-    s = s_val.replace("R$", "").replace(" ", "").replace(".", "").replace(",", ".")
+    s = s_val.replace("R$", "").replace(" ", "")
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
     try:
         return float(s)
     except ValueError:
