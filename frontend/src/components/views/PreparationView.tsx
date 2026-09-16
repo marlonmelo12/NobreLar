@@ -269,16 +269,13 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
 
           {/* Banner de Ação Principal: Otimizar e Gerar Cargas */}
           <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 border border-slate-800">
-            <div className="space-y-1 text-center md:text-left">
+            <div className="text-center md:text-left">
               <div className="flex items-center gap-2 justify-center md:justify-start">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
                 <h3 className="text-base font-extrabold text-white">
                   Lote Pronto para Alocação Multi-Viagens
                 </h3>
               </div>
-              <p className="text-xs text-slate-400">
-                Dispare o algoritmo CP-SAT e TSP para respeitar limites de peso, volume e gerar a rota com menor quilometragem.
-              </p>
             </div>
 
             <button
@@ -312,9 +309,6 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
                   <h4 className="text-sm font-bold text-emerald-950">
                     {dispatchResult?.cargas_caminhao.length} viagens geradas e otimizadas com sucesso!
                   </h4>
-                  <p className="text-xs text-emerald-800">
-                    Os materiais foram estivados e as rotas TSP calculadas a partir do CD Crateús.
-                  </p>
                 </div>
               </div>
 
