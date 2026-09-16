@@ -55,20 +55,21 @@ export const App: React.FC = () => {
     }
   }, [orders]);
 
-  // 3. Inicialização no Mount (Verifica saúde e recupera despacho anterior se houver)
+  // 3. Limpa completamente pedidos e despacho
+  const handleClearDispatch = useCallback(async () => {
+    setOrders([]);
+    setDispatchResult(null);
+    setLastExecutionTime(null);
+    try {
+      await api.clearDispatchState();
+    } catch {
+      // Silencioso
+    }
+  }, []);
+
+  // 4. Inicialização no Mount (Verifica saúde da API)
   useEffect(() => {
     checkHealth();
-    api
-      .fetchConsolidatedSummary()
-      .then((res) => {
-        if (res && res.status === 'SUCESSO' && res.cargas_caminhao && res.cargas_caminhao.length > 0) {
-          setDispatchResult(res);
-          setLastExecutionTime(getFormattedNow());
-        }
-      })
-      .catch(() => {
-        // Sem despacho anterior em memória
-      });
   }, [checkHealth]);
 
   return (
@@ -91,6 +92,7 @@ export const App: React.FC = () => {
               lastExecutionTime={lastExecutionTime}
               isProcessing={isProcessing}
               onExecute={handleExecuteDispatch}
+              onClear={handleClearDispatch}
             />
           )}
 
@@ -101,6 +103,7 @@ export const App: React.FC = () => {
               isProcessing={isProcessing}
               onUploadCustomOrders={(newOrders) => setOrders(newOrders)}
               onExecuteDispatch={handleExecuteDispatch}
+              onClear={handleClearDispatch}
             />
           )}
 
@@ -112,6 +115,7 @@ export const App: React.FC = () => {
             <HistoryView
               dispatchResult={dispatchResult}
               lastExecutionTime={lastExecutionTime}
+              onClear={handleClearDispatch}
             />
           )}
         </div>

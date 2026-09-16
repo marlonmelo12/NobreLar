@@ -14,56 +14,9 @@ interface VehicleCard {
   tipo_carroceria: string;
 }
 
-const DEFAULT_FLEET: VehicleCard[] = [
-  {
-    id: 'accelo-815-01',
-    name: 'Mercedes-Benz Accelo 815 (Caminhão Grande 01)',
-    plate: 'NBL-8151',
-    capacity_kg: 4800.0,
-    useful_volume_m3: 18.5,
-    useful_length_m: 6.2,
-    allows_long_items: true,
-    restricted_to_crateus: false,
-    tipo_carroceria: 'Carroceria Aberta (Grade Baixa)',
-  },
-  {
-    id: 'accelo-815-02',
-    name: 'Mercedes-Benz Accelo 815 (Caminhão Grande 02)',
-    plate: 'NBL-8152',
-    capacity_kg: 4800.0,
-    useful_volume_m3: 18.5,
-    useful_length_m: 6.2,
-    allows_long_items: true,
-    restricted_to_crateus: false,
-    tipo_carroceria: 'Carroceria Aberta (Grade Baixa)',
-  },
-  {
-    id: 'kia-bongo-01',
-    name: 'Kia Bongo K2500 (Caminhão Médio 01)',
-    plate: 'NBL-2500',
-    capacity_kg: 1700.0,
-    useful_volume_m3: 6.5,
-    useful_length_m: 3.1,
-    allows_long_items: false,
-    restricted_to_crateus: true,
-    tipo_carroceria: 'Carroceria Aberta (Grade Baixa)',
-  },
-  {
-    id: 'hyundai-hr-01',
-    name: 'Hyundai HR (Caminhão Médio 02)',
-    plate: 'NBL-2600',
-    capacity_kg: 1700.0,
-    useful_volume_m3: 6.5,
-    useful_length_m: 3.1,
-    allows_long_items: false,
-    restricted_to_crateus: true,
-    tipo_carroceria: 'Carroceria Aberta (Grade Baixa)',
-  },
-];
-
 export const VehiclesView: React.FC = () => {
-  const [vehicles, setVehicles] = useState<VehicleCard[]>(DEFAULT_FLEET);
-  const [loading, setLoading] = useState(false);
+  const [vehicles, setVehicles] = useState<VehicleCard[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadVehicles = async () => {
@@ -78,8 +31,8 @@ export const VehiclesView: React.FC = () => {
             }))
           );
         }
-      } catch {
-        // Fallback silencioso para DEFAULT_FLEET
+      } catch (err) {
+        console.error('Falha ao carregar frota operacional:', err);
       } finally {
         setLoading(false);
       }

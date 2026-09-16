@@ -102,6 +102,15 @@ class ApiService {
   }
 
   /**
+   * Limpa o estado e histórico de despacho em memória no backend.
+   */
+  async clearDispatchState(): Promise<{ status: string; mensagem: string }> {
+    return this.request<{ status: string; mensagem: string }>('/api/v1/dispatch/clear', {
+      method: 'POST',
+    });
+  }
+
+  /**
    * Retorna a lista de veículos da frota ativa.
    */
   async fetchVehicles(): Promise<any[]> {

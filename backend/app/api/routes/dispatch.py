@@ -122,6 +122,10 @@ class DispatchStateStore:
         self.last_result = result
         self.last_trips = trips
 
+    def clear(self):
+        self.last_result = None
+        self.last_trips = None
+
     def get_trips(
         self,
         pipeline: DailyDispatchPipeline,
@@ -371,20 +375,31 @@ def get_orders_decoupled_summary(
 
     return {
         "status": "SUCESSO",
-        "total_pedidos_recebidos": 0,
-        "total_pedidos_roteirizados": 0,
-        "total_pedidos_descartados": 0,
-        "descartes": [],
-        "cargas_caminhao": {
-            "status": "SUCESSO",
-            "total_viagens": 0,
-            "viagens": []
+        "resumo": {
+            "total_records_read": 0,
+            "total_discarded_cleaning": 0,
+            "total_valid_deliveries": 0,
+            "total_allocated_orders": 0,
+            "total_unallocated_orders": 0,
+            "total_trips_generated": 0,
+            "total_invoiced_value": 0.0,
+            "total_allocated_weight_kg": 0.0,
+            "total_allocated_volume_m3": 0.0,
         },
-        "rotas_entrega": {
-            "status": "SUCESSO",
-            "total_viagens": 0,
-            "viagens": []
-        }
+        "cargas_caminhao": [],
+        "roteiros_entrega": [],
+        "descartes_limpeza": []
     }
+
+
+@router.post(
+    "/clear",
+    summary="Limpa todos os dados de despacho e rotas em memória",
+    response_model=Dict[str, Any]
+)
+def clear_dispatch_state():
+    """Reseta e zera os planos de despacho e roteiros em memória."""
+    dispatch_state.clear()
+    return {"status": "SUCESSO", "mensagem": "Estado de despacho limpo com sucesso."}
 
 

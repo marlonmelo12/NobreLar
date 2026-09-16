@@ -6,11 +6,13 @@ import { api } from '../../services/api';
 interface HistoryViewProps {
   dispatchResult: DecoupledDispatchResponse | null;
   lastExecutionTime: string | null;
+  onClear?: () => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
   dispatchResult,
   lastExecutionTime,
+  onClear,
 }) => {
   const descartes = dispatchResult?.descartes_limpeza || [];
   const trips = dispatchResult?.cargas_caminhao || [];
@@ -27,7 +29,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
       </div>
 
       {/* Card da Última Execução */}
-      {dispatchResult ? (
+      {dispatchResult && trips.length > 0 ? (
         <div className="border border-amber-400 bg-white rounded-2xl p-6 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-amber-100 pb-4">
             <div className="flex items-center gap-3">
@@ -44,10 +46,21 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               </div>
             </div>
 
-            <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Alocação Concluída
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Alocação Concluída
+              </span>
+
+              {onClear && (
+                <button
+                  onClick={onClear}
+                  className="text-xs text-rose-700 hover:text-rose-900 font-bold px-3 py-1 rounded-lg border border-rose-200 hover:bg-rose-50 transition cursor-pointer"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Resumo em Números */}

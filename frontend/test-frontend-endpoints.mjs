@@ -193,6 +193,17 @@ async function runTests() {
     }
   });
 
+  // 9. POST Limpeza de Estado
+  await test('9. POST /api/v1/dispatch/clear (Limpeza do Estado de Teste)', async () => {
+    const res = await fetch(`${API_BASE}/api/v1/dispatch/clear`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    if (data.status !== 'SUCESSO') throw new Error(`Status inesperado: ${data.status}`);
+  });
+
   console.log(`\n------------------------------------------------------------`);
   console.log(` RESULTADO FINAL: ${passed} PASSOU / ${failed} FALHOU`);
   console.log(`------------------------------------------------------------\n`);

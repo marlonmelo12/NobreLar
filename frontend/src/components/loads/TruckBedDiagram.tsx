@@ -1,18 +1,16 @@
 import React from 'react';
 import { PedidoCarroceriaItem } from '../../types/dispatch';
 import { SituacaoBadge } from '../common/Badge';
-import { AlertTriangle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 interface TruckBedDiagramProps {
   pedidos: PedidoCarroceriaItem[];
-  allowsLongItems: boolean;
-  hasLongItems: boolean;
+  allowsLongItems?: boolean;
   vehicleName: string;
 }
 
 export const TruckBedDiagram: React.FC<TruckBedDiagramProps> = ({
   pedidos,
-  hasLongItems,
   vehicleName,
 }) => {
   // Ordena os pedidos pela ordem física de carregamento (LIFO)
@@ -34,13 +32,6 @@ export const TruckBedDiagram: React.FC<TruckBedDiagramProps> = ({
             Último pedido a entrar no galpão é o primeiro a ser entregue (Traseira $\rightarrow$ Acesso Imediato)
           </p>
         </div>
-
-        {hasLongItems && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-300 rounded-lg text-xs font-bold text-amber-800 animate-pulse">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span>Tubos/Barras 6m: Cintas & Catracas Laterais</span>
-          </div>
-        )}
       </div>
 
       {/* Esquema Visual da Carroceria Aberta */}
@@ -60,18 +51,6 @@ export const TruckBedDiagram: React.FC<TruckBedDiagramProps> = ({
           {/* Assoalho da Carroceria Aberta */}
           <div className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 relative flex flex-col justify-between min-h-[220px]">
             
-            {/* Faixa Lateral Superior para Barras de 6 Metros (se houver) */}
-            {hasLongItems && (
-              <div className="mb-2.5 px-3 py-1.5 bg-amber-500/15 border border-dashed border-amber-400 rounded-lg flex items-center justify-between text-[11px] text-amber-300">
-                <span className="font-bold flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                  Fueiro Lateral: Fixação de Tubos / Barras de 6m com Catracas
-                </span>
-                <span className="font-mono text-[10px] text-amber-400 font-semibold uppercase">
-                  Amarração Obrigatória
-                </span>
-              </div>
-            )}
 
             {/* Baías de Carga: Frente -> Meio -> Traseira */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

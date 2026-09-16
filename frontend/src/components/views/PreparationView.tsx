@@ -24,6 +24,7 @@ interface PreparationViewProps {
   isProcessing: boolean;
   onUploadCustomOrders: (orders: DecoupledOrderInput[]) => void;
   onExecuteDispatch: () => void;
+  onClear?: () => void;
 }
 
 export const PreparationView: React.FC<PreparationViewProps> = ({
@@ -32,11 +33,11 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
   isProcessing,
   onUploadCustomOrders,
   onExecuteDispatch,
+  onClear,
 }) => {
   // Sub-etapas: 'upload' (Etapa 1), 'trucks' (Etapa 2), 'detail' (Etapa 3)
-  const [currentStep, setCurrentStep] = useState<'upload' | 'trucks' | 'detail'>(
-    dispatchResult ? 'trucks' : 'upload'
-  );
+  // Inicia sempre no passo 1 (upload/visão limpa)
+  const [currentStep, setCurrentStep] = useState<'upload' | 'trucks' | 'detail'>('upload');
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [detailMode, setDetailMode] = useState<'carga' | 'rota'>('carga');
 
@@ -132,12 +133,18 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              {orders.length > 0 && (
+              {(orders.length > 0 || dispatchResult) && (
                 <button
-                  onClick={() => onUploadCustomOrders([])}
+                  onClick={() => {
+                    if (onClear) {
+                      onClear();
+                    } else {
+                      onUploadCustomOrders([]);
+                    }
+                  }}
                   className="text-xs text-rose-600 hover:text-rose-800 font-semibold px-3 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 transition cursor-pointer"
                 >
-                  Limpar Pedidos ({orders.length})
+                  Limpar Lote / Nova Expedição
                 </button>
               )}
             </div>
@@ -162,7 +169,9 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
             <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
               <h4 className="text-xs font-semibold text-slate-600 mb-1">Volume</h4>
               <div className="text-2xl font-bold text-slate-900 font-mono">
-                {dispatchResult?.resumo.total_allocated_volume_m3
+                {totalPedidos === 0
+                  ? '0.00 m³'
+                  : dispatchResult?.resumo.total_allocated_volume_m3
                   ? `${dispatchResult.resumo.total_allocated_volume_m3.toFixed(2)} m³`
                   : `${totalVolumeEstimado.toFixed(1)} m³`}
               </div>
@@ -171,7 +180,9 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
             <div className="border border-amber-400 bg-white rounded-2xl p-4 text-center shadow-sm">
               <h4 className="text-xs font-semibold text-slate-600 mb-1">Peso</h4>
               <div className="text-2xl font-bold text-slate-900 font-mono">
-                {dispatchResult?.resumo.total_allocated_weight_kg
+                {totalPedidos === 0
+                  ? '0 Kg'
+                  : dispatchResult?.resumo.total_allocated_weight_kg
                   ? `${Math.round(dispatchResult.resumo.total_allocated_weight_kg).toLocaleString('pt-BR')} Kg`
                   : `${Math.round(totalPesoEstimado).toLocaleString('pt-BR')} Kg`}
               </div>
@@ -245,10 +256,10 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
 
           {/* Botão Inferior de Execução */}
           <div className="flex items-center justify-between pt-2">
-            {dispatchResult && (
+            {dispatchResult && trips.length > 0 && (
               <button
                 onClick={() => setCurrentStep('trucks')}
-                className="text-amber-700 hover:text-amber-800 font-semibold text-sm flex items-center gap-1.5"
+                className="text-amber-700 hover:text-amber-800 font-semibold text-sm flex items-center gap-1.5 cursor-pointer"
               >
                 Ver viagens já calculadas ({trips.length}) &rarr;
               </button>

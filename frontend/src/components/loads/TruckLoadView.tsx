@@ -27,7 +27,6 @@ export const TruckLoadView: React.FC<TruckLoadViewProps> = ({ cargas }) => {
   }
 
   const currentTrip = cargas[selectedTripIndex] || cargas[0];
-  const hasLongItems = currentTrip.pedidos_carroceria.some((p) => p.possui_itens_6m);
 
   return (
     <div className="space-y-6">
@@ -76,7 +75,6 @@ export const TruckLoadView: React.FC<TruckLoadViewProps> = ({ cargas }) => {
       <TruckBedDiagram
         pedidos={currentTrip.pedidos_carroceria}
         allowsLongItems={currentTrip.veiculo.permite_barras_6m}
-        hasLongItems={hasLongItems}
         vehicleName={currentTrip.veiculo.nome}
       />
 

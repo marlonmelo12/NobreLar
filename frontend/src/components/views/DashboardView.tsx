@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { DecoupledDispatchResponse } from '../../types/dispatch';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
+import { api } from '../../services/api';
 
 interface DashboardViewProps {
   dispatchResult: DecoupledDispatchResponse | null;
@@ -8,6 +9,7 @@ interface DashboardViewProps {
   lastExecutionTime: string | null;
   isProcessing: boolean;
   onExecute: () => void;
+  onClear?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -16,7 +18,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   lastExecutionTime,
   isProcessing,
   onExecute,
+  onClear,
 }) => {
+  const [axesCount, setAxesCount] = useState(6);
+  const [vehiclesCount, setVehiclesCount] = useState(4);
+
+  useEffect(() => {
+    api.fetchAxisProfiles().then((data) => {
+      if (data && data.length > 0) setAxesCount(data.length);
+    }).catch(() => {});
+
+    api.fetchVehicles().then((data) => {
+      if (data && data.length > 0) setVehiclesCount(data.length);
+    }).catch(() => {});
+  }, []);
+
   const resumo = dispatchResult?.resumo;
   const pedidosTotais = resumo ? resumo.total_records_read : totalOrdersCount;
   const pedidosValidos = resumo ? resumo.total_valid_deliveries : 0;
@@ -61,10 +77,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* Faixa inferior amarela suave */}
         <div className="bg-[#FEF3C7] border-t border-amber-200/80 px-8 py-3 flex items-center justify-between text-xs text-slate-700 font-semibold">
-          <span>Última execução</span>
-          <span className="font-mono text-slate-900">
-            {lastExecutionTime || '00:00 00/00/0000'}
-          </span>
+          <div className="flex items-center gap-3">
+            <span>Última execução:</span>
+            <span className="font-mono text-slate-900">
+              {lastExecutionTime || 'Nenhuma execução realizada'}
+            </span>
+          </div>
+
+          {dispatchResult && onClear && (
+            <button
+              onClick={onClear}
+              className="text-xs text-rose-700 hover:text-rose-900 font-bold flex items-center gap-1 bg-white/80 hover:bg-white px-2.5 py-1 rounded-lg border border-amber-300 transition cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Limpar Resultados</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -114,7 +142,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Eixos
           </h3>
           <div className="text-5xl font-black text-slate-900 font-mono">
-            6
+            {axesCount}
           </div>
           <span className="text-xs text-slate-400 mt-2 block">
             Macrorregião de Crateús (Eixos 0 a 5)
@@ -126,7 +154,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Veículos
           </h3>
           <div className="text-5xl font-black text-slate-900 font-mono">
-            4
+            {vehiclesCount}
           </div>
           <span className="text-xs text-slate-400 mt-2 block">
             2 Accelo 815 • 1 Kia Bongo • 1 Hyundai HR
