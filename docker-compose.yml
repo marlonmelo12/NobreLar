@@ -21,6 +21,17 @@ services:
       retries: 3
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nobrelog_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
   test:
     build:
       context: ./backend
