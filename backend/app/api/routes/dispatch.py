@@ -152,17 +152,8 @@ def generate_trip_delivery_route_pdf(trip_data: Dict[str, Any]):
         )
 
 
-# ===========================================================================
-# ENDPOINTS DESACOPLADOS: JSON INGESTION & DRILL-DOWN PARA O FRONTEND
-# ===========================================================================
-
-@router.get(
-    "/mock-orders",
-    summary="Retorna a lista de pedidos mock estruturados baseados no pedido oficial da Nobre Lar",
-    response_model=List[Dict[str, Any]]
-)
-def get_mock_orders_json():
-    """Retorna a coleção mock JSON estruturada baseada no espelho do pedido L12608361 da Nobre Lar."""
+def _get_default_mock_orders() -> List[Dict[str, Any]]:
+    """Obtém a lista padrão de pedidos mock estruturados."""
     mock_candidates = [
         settings.DATA_RAW_DIR / "mock_pedidos_estrutura.json",
         Path("/data/raw/mock_pedidos_estrutura.json"),
@@ -175,6 +166,91 @@ def get_mock_orders_json():
                 return json.loads(p.read_text(encoding="utf-8"))
             except Exception as e:
                 logger.error(f"Erro ao ler mock de pedidos: {e}")
+    return []
+
+
+@router.get(
+    "/trips/{trip_id}/pdf/loading-sheet",
+    summary="Emite PDF do Mapa de Carregamento da Carroceria Aberta via GET"
+)
+def get_trip_loading_sheet_pdf(
+    trip_id: str,
+    db: Session = Depends(get_db)
+):
+    """Gera e retorna diretamente o PDF do mapa de carregamento (LIFO) para visualização ou download no navegador."""
+    orders = _get_default_mock_orders()
+    if not orders:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum lote de pedidos disponível.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    raw_res = pipeline.process_orders_collection(raw_orders=orders)
+    trips = raw_res.get("trips", [])
+    matched_trip = next((t for t in trips if t["trip_id"] == trip_id), None)
+    if not matched_trip:
+        if trip_id in ("default", "current", "1", "mock", "viagem-1") and trips:
+            matched_trip = trips[0]
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Viagem '{trip_id}' não encontrada.")
+
+    try:
+        pdf_bytes = ReportService.generate_loading_sheet_pdf(matched_trip)
+        filename = f"mapa_carregamento_{trip_id}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"inline; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Erro ao gerar PDF de carregamento via GET: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get(
+    "/trips/{trip_id}/pdf/delivery-route",
+    summary="Emite PDF do Roteiro de Entregas TSP via GET"
+)
+def get_trip_delivery_route_pdf(
+    trip_id: str,
+    db: Session = Depends(get_db)
+):
+    """Gera e retorna diretamente o PDF do roteiro de entregas TSP com cobrança para visualização ou download no navegador."""
+    orders = _get_default_mock_orders()
+    if not orders:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum lote de pedidos disponível.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    raw_res = pipeline.process_orders_collection(raw_orders=orders)
+    trips = raw_res.get("trips", [])
+    matched_trip = next((t for t in trips if t["trip_id"] == trip_id), None)
+    if not matched_trip:
+        if trip_id in ("default", "current", "1", "mock", "viagem-1") and trips:
+            matched_trip = trips[0]
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Viagem '{trip_id}' não encontrada.")
+
+    try:
+        pdf_bytes = ReportService.generate_delivery_route_pdf(matched_trip)
+        filename = f"roteiro_entregas_{trip_id}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"inline; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Erro ao gerar PDF de roteiro TSP via GET: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get(
+    "/mock-orders",
+    summary="Retorna a lista de pedidos mock estruturados baseados no pedido oficial da Nobre Lar",
+    response_model=List[Dict[str, Any]]
+)
+def get_mock_orders_json():
+    """Retorna a coleção mock JSON estruturada baseada no espelho do pedido L12608361 da Nobre Lar."""
+    orders = _get_default_mock_orders()
+    if orders:
+        return orders
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -216,6 +292,29 @@ def _extract_batch_orders_and_params(
     return orders_raw, profile_name, time_limit
 
 
+@router.get(
+    "/process-orders",
+    summary="Consulta consolidada completa via GET (usando pedidos do dia / mock)",
+    response_model=DecoupledDispatchResponse
+)
+def get_orders_decoupled_summary(
+    perfil_otimizacao: str = "Equilibrado",
+    tempo_limite_segundos: float = 20.0,
+    db: Session = Depends(get_db)
+):
+    """Retorna a visão consolidada completa diretamente via GET para o Frontend."""
+    orders_raw = _get_default_mock_orders()
+    if not orders_raw:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum pedido padrão encontrado.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    return pipeline.process_orders_json(
+        orders=orders_raw,
+        profile_name=perfil_otimizacao,
+        time_limit_seconds=tempo_limite_segundos
+    )
+
+
 @router.post(
     "/process-orders",
     summary="Processamento desacoplado completo via JSON (retorna ambas as visões com drill-down)",
@@ -239,6 +338,40 @@ def process_orders_decoupled(
     return result
 
 
+@router.get(
+    "/truck-load",
+    summary="Consulta de Carga no Caminhão (Carroceria Aberta) com drill-down via GET",
+    response_model=TruckLoadResponse
+)
+@router.get(
+    "/process-orders/truck-load",
+    summary="Consulta de Carga no Caminhão com drill-down via GET",
+    response_model=TruckLoadResponse
+)
+def get_orders_truck_load(
+    perfil_otimizacao: str = "Equilibrado",
+    tempo_limite_segundos: float = 20.0,
+    db: Session = Depends(get_db)
+):
+    """Retorna as cargas nos caminhões de carroceria aberta diretamente via GET para o Frontend."""
+    orders_raw = _get_default_mock_orders()
+    if not orders_raw:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum pedido padrão encontrado.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    raw_res = pipeline.process_orders_collection(
+        raw_orders=orders_raw,
+        profile_name=perfil_otimizacao,
+        time_limit_seconds=tempo_limite_segundos
+    )
+    trips_formatted = pipeline.format_truck_load_response(raw_res["trips"])
+    return {
+        "status": "SUCESSO",
+        "total_viagens": len(trips_formatted),
+        "viagens": trips_formatted
+    }
+
+
 @router.post(
     "/process-orders/truck-load",
     summary="Retorna os pedidos organizados para Carga no Caminhão (Carroceria Aberta) com drill-down de itens",
@@ -260,6 +393,40 @@ def process_orders_truck_load(
         time_limit_seconds=time_limit
     )
     trips_formatted = pipeline.format_truck_load_response(raw_res["trips"])
+    return {
+        "status": "SUCESSO",
+        "total_viagens": len(trips_formatted),
+        "viagens": trips_formatted
+    }
+
+
+@router.get(
+    "/delivery-route",
+    summary="Consulta da Ordem de Entrega (Roteiro TSP) com drill-down via GET",
+    response_model=DeliveryRouteResponse
+)
+@router.get(
+    "/process-orders/delivery-route",
+    summary="Consulta da Ordem de Entrega (Roteiro TSP) com drill-down via GET",
+    response_model=DeliveryRouteResponse
+)
+def get_orders_delivery_route(
+    perfil_otimizacao: str = "Equilibrado",
+    tempo_limite_segundos: float = 20.0,
+    db: Session = Depends(get_db)
+):
+    """Retorna o roteiro cronológico de entregas TSP diretamente via GET para o Frontend."""
+    orders_raw = _get_default_mock_orders()
+    if not orders_raw:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum pedido padrão encontrado.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    raw_res = pipeline.process_orders_collection(
+        raw_orders=orders_raw,
+        profile_name=perfil_otimizacao,
+        time_limit_seconds=tempo_limite_segundos
+    )
+    trips_formatted = pipeline.format_delivery_route_response(raw_res["trips"])
     return {
         "status": "SUCESSO",
         "total_viagens": len(trips_formatted),

@@ -142,3 +142,42 @@ def test_process_orders_delivery_route_endpoint():
     assert primeira_parada["parada"] == 1
     assert "endereco_completo" in primeira_parada
     assert len(primeira_parada["itens"]) > 0
+
+
+def test_get_endpoints_for_frontend():
+    """Valida que o Frontend pode consultar cargas, rotas e PDFs diretamente via GET sem body."""
+    # 1. GET /truck-load
+    res_truck = client.get("/api/v1/dispatch/truck-load")
+    assert res_truck.status_code == 200
+    data_truck = res_truck.json()
+    assert data_truck["status"] == "SUCESSO"
+    assert len(data_truck["viagens"]) > 0
+    assert "pedidos_carroceria" in data_truck["viagens"][0]
+
+    # 2. GET /delivery-route
+    res_route = client.get("/api/v1/dispatch/delivery-route")
+    assert res_route.status_code == 200
+    data_route = res_route.json()
+    assert data_route["status"] == "SUCESSO"
+    assert len(data_route["viagens"]) > 0
+    assert "paradas" in data_route["viagens"][0]
+
+    # 3. GET /process-orders
+    res_proc = client.get("/api/v1/dispatch/process-orders")
+    assert res_proc.status_code == 200
+    data_proc = res_proc.json()
+    assert data_proc["status"] == "SUCESSO"
+    assert "cargas_caminhao" in data_proc
+    assert "roteiros_entrega" in data_proc
+
+    # 4. GET /trips/default/pdf/loading-sheet
+    res_pdf_load = client.get("/api/v1/dispatch/trips/default/pdf/loading-sheet")
+    assert res_pdf_load.status_code == 200
+    assert res_pdf_load.headers["content-type"] == "application/pdf"
+    assert res_pdf_load.content.startswith(b"%PDF-")
+
+    # 5. GET /trips/default/pdf/delivery-route
+    res_pdf_route = client.get("/api/v1/dispatch/trips/default/pdf/delivery-route")
+    assert res_pdf_route.status_code == 200
+    assert res_pdf_route.headers["content-type"] == "application/pdf"
+    assert res_pdf_route.content.startswith(b"%PDF-")

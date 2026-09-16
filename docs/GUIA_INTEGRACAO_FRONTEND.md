@@ -27,11 +27,20 @@ A documentação interativa Swagger/OpenAPI está disponível em `/docs`.
 | Método | Endpoint | Descrição |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/dispatch/mock-orders` | Retorna coleção mock estruturada baseada no pedido real da Nobre Lar (N. L12608361) |
-| `POST` | `/api/v1/dispatch/process-orders` | **Endpoint Principal Consolidado**: Retorna Cargas na Carroceria + Roteiro TSP + Descartes de Limpeza |
-| `POST` | `/api/v1/dispatch/process-orders/truck-load` | Endpoint especializado: Retorna apenas a visão de **Carga no Caminhão (Carroceria Aberta)** com drill-down |
-| `POST` | `/api/v1/dispatch/process-orders/delivery-route` | Endpoint especializado: Retorna apenas a visão de **Ordem de Entrega (Roteiro TSP)** com drill-down |
-| `GET` | `/api/v1/dispatch/trips/{trip_id}/pdf/loading-sheet` | Download binário do PDF do **Mapa de Carregamento (LIFO) da Carroceria** |
-| `GET` | `/api/v1/dispatch/trips/{trip_id}/pdf/delivery-route` | Download binário do PDF do **Roteiro de Entregas TSP com Cobrança** |
+| `GET` / `POST` | `/api/v1/dispatch/truck-load` | **Tela 1: Carga no Caminhão (Carroceria Aberta)** com drill-down. `GET` consulta direto; `POST` processa lote customizado |
+| `GET` / `POST` | `/api/v1/dispatch/delivery-route` | **Tela 2: Ordem de Entrega (Roteiro TSP)** com drill-down. `GET` consulta direto; `POST` processa lote customizado |
+| `GET` / `POST` | `/api/v1/dispatch/process-orders` | **Endpoint Consolidado**: Retorna Cargas na Carroceria + Roteiro TSP + Descartes de Limpeza |
+| `GET` / `POST` | `/api/v1/dispatch/process-orders/truck-load` | Alias para `/truck-load` |
+| `GET` / `POST` | `/api/v1/dispatch/process-orders/delivery-route` | Alias para `/delivery-route` |
+| `GET` | `/api/v1/dispatch/trips/{trip_id}/pdf/loading-sheet` | Download binário ou visualização inline do PDF do **Mapa de Carregamento (LIFO) da Carroceria** via `GET` direto (ideal para tags `<a href>` ou `window.open`) |
+| `GET` | `/api/v1/dispatch/trips/{trip_id}/pdf/delivery-route` | Download binário ou visualização inline do PDF do **Roteiro de Entregas TSP com Cobrança** via `GET` direto |
+| `POST` | `/api/v1/dispatch/trips/loading-sheet/pdf` | Emissão de PDF passando o objeto da viagem no corpo da requisição |
+| `POST` | `/api/v1/dispatch/trips/delivery-route/pdf` | Emissão de PDF do roteiro passando o objeto da viagem no corpo da requisição |
+
+> [!TIP]
+> **Quando usar `GET` vs `POST` no Frontend?**
+> - **Use `GET`** para carregar as telas de consulta, navegação entre abas ou links de download de PDF (`<a href="..." download>`). O backend utiliza a base simulada/faturada padrão e responde instantaneamente sem exigir o reenvio de payload.
+> - **Use `POST`** apenas quando a interface permitir que o operador envie um novo lote de pedidos JSON ou importe dados customizados do ERP que devem ser processados sob demanda com um corpo de requisição (`Request Body`).
 
 ---
 
@@ -530,7 +539,29 @@ export const dispatchService = {
   },
 
   /**
-   * Processa o lote de pedidos e retorna visão consolidada (Caminhões + Roteiro + Drill-Down).
+   * Consulta direta via GET: Carrega as cargas nos caminhões (Carroceria Aberta).
+   * Não requer envio de body! Ideal para renderizar a tela inicial.
+   */
+  async getTruckLoad(perfilOtimizacao = 'Equilibrado'): Promise<TruckLoadResponse> {
+    const res = await axios.get<TruckLoadResponse>(`${API_BASE_URL}/truck-load`, {
+      params: { perfil_otimizacao: perfilOtimizacao }
+    });
+    return res.data;
+  },
+
+  /**
+   * Consulta direta via GET: Carrega o roteiro de entrega TSP.
+   * Não requer envio de body! Ideal para renderizar a tela de rotas.
+   */
+  async getDeliveryRoute(perfilOtimizacao = 'Equilibrado'): Promise<DeliveryRouteResponse> {
+    const res = await axios.get<DeliveryRouteResponse>(`${API_BASE_URL}/delivery-route`, {
+      params: { perfil_otimizacao: perfilOtimizacao }
+    });
+    return res.data;
+  },
+
+  /**
+   * Processa um lote customizado de pedidos enviado pelo usuário via POST.
    */
   async processOrders(
     pedidos: OrderInput[],
