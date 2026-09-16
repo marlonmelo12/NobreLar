@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -13,9 +11,9 @@ services:
       - SECRET_KEY=nobrelog-ia-secret-key-prod-crateus-2026
       - SOLVER_TIME_LIMIT_SECONDS=30.0
       - SOLVER_NUM_SEARCH_WORKERS=8
+      - DATA_RAW_DIR=/data/raw
     volumes:
       - ./data:/data
-      - backend_data:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 30s
@@ -23,5 +21,17 @@ services:
       retries: 3
     restart: unless-stopped
 
-volumes:
-  backend_data:
+  test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nobrelog_tests
+    environment:
+      - DATABASE_URL=sqlite:///./test_nobrelog.db
+      - SECRET_KEY=nobrelog-ia-secret-key-test-crateus-2026
+      - SOLVER_TIME_LIMIT_SECONDS=10.0
+      - SOLVER_NUM_SEARCH_WORKERS=4
+      - DATA_RAW_DIR=/data/raw
+    volumes:
+      - ./data:/data
+    command: ["pytest", "-v", "tests/"]

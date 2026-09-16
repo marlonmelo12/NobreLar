@@ -17,8 +17,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Cópia do código-fonte da aplicação
+# Cópia do código-fonte da aplicação e testes
 COPY app ./app
+COPY tests ./tests
+ENV PYTHONPATH=/app
 
 # Porta de execução da API
 EXPOSE 8000
