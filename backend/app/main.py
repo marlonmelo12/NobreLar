@@ -23,6 +23,7 @@ from app.api.routes.orders import router as orders_router
 from app.api.routes.uploads import router as uploads_router
 from app.api.routes.loads import router as loads_router
 from app.api.routes.analytics import router as analytics_router
+from app.api.routes.dispatch import router as dispatch_router
 
 logger = structlog.get_logger()
 
@@ -75,6 +76,7 @@ for prefix in [settings.API_V1_STR, "/api"]:
     app.include_router(uploads_router, prefix=prefix)
     app.include_router(loads_router, prefix=prefix)
     app.include_router(analytics_router, prefix=prefix)
+    app.include_router(dispatch_router, prefix=prefix)
 
 
 @app.get("/", summary="Boas-vindas")
