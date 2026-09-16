@@ -15,6 +15,7 @@ uvicorn[standard]>=0.28.0,<0.35.0
 pydantic>=2.6.0,<2.11.0
 pandera>=0.19.0,<0.21.0
 ortools>=9.9.3963,<9.12.0
+geopy>=2.4.0,<2.5.0
 sqlalchemy>=2.0.28,<2.1.0
 python-multipart>=0.0.9
 jinja2>=3.1.3
@@ -377,6 +378,79 @@ def solve_load_allocation(
 ```
 
 ---
+
+
+---
+
+## 7-B. Solucionador do Caixeiro Viajante (TSP) com OR-Tools Routing
+
+Após a seleção dos pedidos pelo CP-SAT, o sistema executa a roteirização do Caixeiro Viajante para ordenar as paradas do caminhão:
+
+```python
+# app/services/tsp_solver.py
+import math
+from ortools.constraint_solver import routing_enums_pb2, pywrapcp
+
+def solve_tsp_order(
+    locations: list[tuple[float, float]],
+    depot_index: int = 0,
+    roundtrip: bool = True
+) -> dict:
+    """
+    locations: Lista de tuplas (lat, lon), onde o índice 0 é o CD Nobre Lar Crateús.
+    Retorna a sequência ótima de nós e a distância viária total estimada.
+    """
+    n = len(locations)
+    if n <= 1:
+        return {"route": [0], "total_distance_km": 0.0}
+
+    # 1. Matriz de Distâncias Viárias (Haversine + Tortuosidade 1.28)
+    def dist_meters(c1, c2):
+        lat1, lon1, lat2, lon2 = map(math.radians, [c1[0], c1[1], c2[0], c2[1]])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        return int(6371000 * c * 1.28) # metros
+
+    matrix = [[dist_meters(locations[i], locations[j]) for j in range(n)] for i in range(n)]
+
+    manager = pywrapcp.RoutingIndexManager(n, 1, depot_index)
+    routing = pywrapcp.RoutingModel(manager)
+
+    def callback(from_idx, to_idx):
+        return matrix[manager.IndexToNode(from_idx)][manager.IndexToNode(to_idx)]
+
+    transit_idx = routing.RegisterTransitCallback(callback)
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_idx)
+
+    search_params = pywrapcp.DefaultRoutingSearchParameters()
+    search_params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    search_params.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+    search_params.time_limit.seconds = 5
+
+    solution = routing.SolveWithParameters(search_params)
+    if not solution:
+        return {"route": list(range(n)), "total_distance_km": 0.0}
+
+    idx = routing.Start(0)
+    route = []
+    tot_dist = 0
+    while not routing.IsEnd(idx):
+        node = manager.IndexToNode(idx)
+        route.append(node)
+        prev = idx
+        idx = solution.Value(routing.NextVar(idx))
+        tot_dist += routing.GetArcCostForVehicle(prev, idx, 0)
+
+    if roundtrip:
+        route.append(manager.IndexToNode(idx))
+
+    return {
+        "route": route,
+        "total_distance_km": round(tot_dist / 1000.0, 2)
+    }
+```
 
 ## 8. Golden Test Fixture (Gabarito de Teste Unitário)
 
