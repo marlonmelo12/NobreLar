@@ -113,6 +113,35 @@ def test_api_manual_toggle_and_conflict_409():
     assert any(a["action"] == "REMOVE_ORDER" and a["accepted"] is True for a in audits)
 
 
+def test_api_manual_toggle_rejects_divergent_axis():
+    """Valida que o sistema rejeita compulsoriamente (409 Conflict) misturar pedidos de eixos divergentes."""
+    # 1. Gera plano para o Eixo 4
+    res = client.post(
+        "/api/v1/load-plans/optimize",
+        json={
+            "axis_id": "eixo-4-norte-serra",
+            "vehicle_id": "accelo-815-01",
+            "time_limit_seconds": 10.0
+        }
+    )
+    assert res.status_code == 200
+    plan_id = res.json()["id"]
+
+    # 2. Busca um pedido que pertença a outro eixo (ex: Eixo 2 ou Eixo 3)
+    orders_res = client.get("/api/v1/orders")
+    assert orders_res.status_code == 200
+    orders = orders_res.json()
+    divergent_order = next((o for o in orders if o["axis_id"] != "eixo-4-norte-serra"), None)
+
+    if divergent_order:
+        # 3. Tenta incluir o pedido do eixo divergente no plano do Eixo 4
+        toggle_res = client.post(f"/api/v1/load-plans/{plan_id}/items/{divergent_order['id']}/toggle")
+        assert toggle_res.status_code == 409
+        detail = toggle_res.json()["detail"]
+        assert "incompatibilidade geográfica" in detail.lower()
+        assert "não podendo ser misturado" in detail.lower()
+
+
 def test_api_analytics_axis_profile():
     """Valida o cálculo analítico de densidade por eixo e recurso limitante (CA-016)."""
     res = client.get("/api/v1/analytics/axis-profile")

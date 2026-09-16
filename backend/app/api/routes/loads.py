@@ -327,6 +327,50 @@ def toggle_load_plan_item(
         if not order_obj:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido não encontrado.")
 
+        # 1. Validação Rígida de Eixo Rodoviário (Segregação Geográfica Canônica)
+        if order_obj.axis_id != plan.axis_id:
+            err_msg = (
+                f"Inclusão rejeitada por incompatibilidade geográfica: o pedido '{order_id}' pertence ao "
+                f"'{order_obj.axis_id}', não podendo ser misturado com a carga do '{plan.axis_id}'."
+            )
+            audit = LoadPlanAudit(
+                load_plan_id=plan.id,
+                user_id="aprovador",
+                action="ADD_ORDER",
+                order_id=order_id,
+                accepted=False,
+                rejection_reason=err_msg,
+                weight_before=w_before,
+                weight_after=w_before,
+                volume_before=v_before,
+                volume_after=v_before
+            )
+            db.add(audit)
+            db.commit()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=err_msg)
+
+        # 2. Validação Dimensional de Peças de 6 Metros
+        if order_obj.has_long_items and not vehicle.allows_long_items:
+            err_msg = (
+                f"Inclusão rejeitada: o pedido '{order_id}' contém peças lineares de 6 metros "
+                f"incompatíveis com o compartimento de carga do veículo '{vehicle.name}'."
+            )
+            audit = LoadPlanAudit(
+                load_plan_id=plan.id,
+                user_id="aprovador",
+                action="ADD_ORDER",
+                order_id=order_id,
+                accepted=False,
+                rejection_reason=err_msg,
+                weight_before=w_before,
+                weight_after=w_before,
+                volume_before=v_before,
+                volume_after=v_before
+            )
+            db.add(audit)
+            db.commit()
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=err_msg)
+
         # Simulação dos novos totais
         cand_w = round(plan.total_weight_kg + order_obj.total_weight_kg, 2)
         cand_v = round(plan.total_volume_m3 + order_obj.total_volume_m3, 4)
