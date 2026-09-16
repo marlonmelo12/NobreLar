@@ -9,13 +9,13 @@ Para documentação detalhada com interfaces TypeScript e exemplos de código pa
 
 Projetada para operação sem dependência de upload de arquivos CSV, ingerindo lotes de pedidos em JSON estruturado diretamente do ERP ou da interface web.
 
-### 1.1 Endpoints Desacoplados (Suporte Dual GET / POST)
-- `GET /api/v1/dispatch/mock-orders`: Retorna conjunto de pedidos mock estruturados no modelo canônico da Nobre Lar (N. L12608361).
-- `GET / POST /api/v1/dispatch/truck-load`: Visão de Carregamento na Carroceria Aberta (`GET` consulta direto; `POST` processa lote customizado).
-- `GET / POST /api/v1/dispatch/delivery-route`: Visão de Ordem de Entrega / Roteiro TSP (`GET` consulta direto; `POST` processa lote customizado).
-- `GET / POST /api/v1/dispatch/process-orders`: Endpoint consolidado que retorna Cargas na Carroceria + Roteiro TSP + Descartes.
-- `GET /api/v1/dispatch/trips/{trip_id}/pdf/loading-sheet`: Emissão e download direto do PDF oficial do Mapa de Carregamento (LIFO) da Carroceria via `GET`.
-- `GET /api/v1/dispatch/trips/{trip_id}/pdf/delivery-route`: Emissão e download direto do PDF oficial do Roteiro de Entregas TSP com Cobrança via `GET`.
+### 1.1 Endpoints Desacoplados (POST Único de Pedidos + GET Exclusivo para Carga e Rota)
+- `POST /api/v1/dispatch/orders` (ou `/process-orders`): **Endpoint Único de Envio (POST)** que recebe o JSON de pedidos, calcula e armazena os planos em memória.
+- `GET /api/v1/dispatch/truck-load`: Retorna **exclusivamente via GET** a montagem de carga nos caminhões (carroceria aberta) com drill-down.
+- `GET /api/v1/dispatch/delivery-route`: Retorna **exclusivamente via GET** o roteiro de entrega (TSP) com endereços e cobrança.
+- `GET /api/v1/dispatch/mock-orders`: Retorna a coleção mock estruturada (L12608361) via `GET`.
+- `GET /api/v1/dispatch/trips/{trip_id}/pdf/loading-sheet`: Emissão e download direto do PDF oficial do Mapa de Carregamento da Carroceria via `GET`.
+- `GET /api/v1/dispatch/trips/{trip_id}/pdf/delivery-route`: Emissão e download direto do PDF oficial do Roteiro de Entregas TSP via `GET`.
 
 Consulte o [Guia Completo de Integração Frontend](GUIA_INTEGRACAO_FRONTEND.md) para os contratos de dados completos e tipos TypeScript.
 

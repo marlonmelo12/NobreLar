@@ -97,72 +97,56 @@ def test_process_orders_decoupled_full():
             assert len(parada["itens"]) > 0, "Cada parada deve conter os itens a descarregar"
 
 
-def test_process_orders_truck_load_endpoint():
-    """Valida o endpoint especializado POST /api/v1/dispatch/process-orders/truck-load."""
+def test_post_orders_then_get_load_and_route():
+    """Valida a arquitetura estrita: POST único para enviar pedidos e GET exclusivo para consultar carga e rota."""
     res_mock = client.get("/api/v1/dispatch/mock-orders")
     orders_payload = res_mock.json()
 
-    res = client.post(
-        "/api/v1/dispatch/process-orders/truck-load",
-        json={"pedidos": orders_payload}
+    # 1. POST único para submissão do JSON de pedidos
+    res_post = client.post(
+        "/api/v1/dispatch/orders",
+        json={"pedidos": orders_payload, "perfil_otimizacao": "Equilibrado"}
     )
-    assert res.status_code == 200
-    data = res.json()
+    assert res_post.status_code == 200
+    data_post = res_post.json()
+    assert data_post["status"] == "SUCESSO"
+    assert len(data_post["cargas_caminhao"]) > 0
 
-    assert data["status"] == "SUCESSO"
-    assert "total_viagens" in data
-    assert "viagens" in data
-    assert len(data["viagens"]) > 0
-
-    viagem_1 = data["viagens"][0]
-    assert "pedidos_carroceria" in viagem_1
-    primeiro_pedido = viagem_1["pedidos_carroceria"][0]
-    assert "ordem_carregamento" in primeiro_pedido
-    assert "posicao_carroceria" in primeiro_pedido
-    assert len(primeiro_pedido["itens"]) > 0
-
-
-def test_process_orders_delivery_route_endpoint():
-    """Valida o endpoint especializado POST /api/v1/dispatch/process-orders/delivery-route."""
-    res_mock = client.get("/api/v1/dispatch/mock-orders")
-    orders_payload = res_mock.json()
-
-    res = client.post(
-        "/api/v1/dispatch/process-orders/delivery-route",
-        json={"pedidos": orders_payload}
-    )
-    assert res.status_code == 200
-    data = res.json()
-
-    assert data["status"] == "SUCESSO"
-    assert "viagens" in data
-    viagem_1 = data["viagens"][0]
-    assert "paradas" in viagem_1
-    primeira_parada = viagem_1["paradas"][0]
-    assert primeira_parada["parada"] == 1
-    assert "endereco_completo" in primeira_parada
-    assert len(primeira_parada["itens"]) > 0
-
-
-def test_get_endpoints_for_frontend():
-    """Valida que o Frontend pode consultar cargas, rotas e PDFs diretamente via GET sem body."""
-    # 1. GET /truck-load
+    # 2. GET exclusivo para consultar os dados de carga no caminhão
     res_truck = client.get("/api/v1/dispatch/truck-load")
     assert res_truck.status_code == 200
     data_truck = res_truck.json()
     assert data_truck["status"] == "SUCESSO"
     assert len(data_truck["viagens"]) > 0
-    assert "pedidos_carroceria" in data_truck["viagens"][0]
+    viagem_1 = data_truck["viagens"][0]
+    assert "pedidos_carroceria" in viagem_1
+    assert len(viagem_1["pedidos_carroceria"]) > 0
+    assert "posicao_carroceria" in viagem_1["pedidos_carroceria"][0]
+    assert len(viagem_1["pedidos_carroceria"][0]["itens"]) > 0
 
-    # 2. GET /delivery-route
+    # 3. GET exclusivo para consultar os dados da rota de entrega (TSP)
     res_route = client.get("/api/v1/dispatch/delivery-route")
     assert res_route.status_code == 200
     data_route = res_route.json()
     assert data_route["status"] == "SUCESSO"
     assert len(data_route["viagens"]) > 0
-    assert "paradas" in data_route["viagens"][0]
+    viagem_rot = data_route["viagens"][0]
+    assert "paradas" in viagem_rot
+    assert len(viagem_rot["paradas"]) > 0
+    assert "endereco_completo" in viagem_rot["paradas"][0]
+    assert len(viagem_rot["paradas"][0]["itens"]) > 0
 
-    # 3. GET /process-orders
+    # 4. Assegura que POST em /truck-load e /delivery-route não é permitido (apenas GET)
+    res_post_truck = client.post("/api/v1/dispatch/truck-load", json={})
+    assert res_post_truck.status_code == 405, "Endpoint de carga deve ser estritamente GET"
+
+    res_post_route = client.post("/api/v1/dispatch/delivery-route", json={})
+    assert res_post_route.status_code == 405, "Endpoint de rota deve ser estritamente GET"
+
+
+def test_get_endpoints_and_pdf():
+    """Valida os endpoints GET para consulta direta e download de relatórios PDF."""
+    # 1. GET /process-orders
     res_proc = client.get("/api/v1/dispatch/process-orders")
     assert res_proc.status_code == 200
     data_proc = res_proc.json()
@@ -170,13 +154,13 @@ def test_get_endpoints_for_frontend():
     assert "cargas_caminhao" in data_proc
     assert "roteiros_entrega" in data_proc
 
-    # 4. GET /trips/default/pdf/loading-sheet
+    # 2. GET /trips/default/pdf/loading-sheet
     res_pdf_load = client.get("/api/v1/dispatch/trips/default/pdf/loading-sheet")
     assert res_pdf_load.status_code == 200
     assert res_pdf_load.headers["content-type"] == "application/pdf"
     assert res_pdf_load.content.startswith(b"%PDF-")
 
-    # 5. GET /trips/default/pdf/delivery-route
+    # 3. GET /trips/default/pdf/delivery-route
     res_pdf_route = client.get("/api/v1/dispatch/trips/default/pdf/delivery-route")
     assert res_pdf_route.status_code == 200
     assert res_pdf_route.headers["content-type"] == "application/pdf"

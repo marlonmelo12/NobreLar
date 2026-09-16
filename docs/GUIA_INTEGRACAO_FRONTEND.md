@@ -24,23 +24,23 @@ O backend opera de forma **100% desacoplada e stateless**:
 A URL base padrão da API é `http://localhost:8000` (ou a URL de produção configurada).
 A documentação interativa Swagger/OpenAPI está disponível em `/docs`.
 
-| Método | Endpoint | Descrição |
-| :--- | :--- | :--- |
-| `GET` | `/api/v1/dispatch/mock-orders` | Retorna coleção mock estruturada baseada no pedido real da Nobre Lar (N. L12608361) |
-| `GET` / `POST` | `/api/v1/dispatch/truck-load` | **Tela 1: Carga no Caminhão (Carroceria Aberta)** com drill-down. `GET` consulta direto; `POST` processa lote customizado |
-| `GET` / `POST` | `/api/v1/dispatch/delivery-route` | **Tela 2: Ordem de Entrega (Roteiro TSP)** com drill-down. `GET` consulta direto; `POST` processa lote customizado |
-| `GET` / `POST` | `/api/v1/dispatch/process-orders` | **Endpoint Consolidado**: Retorna Cargas na Carroceria + Roteiro TSP + Descartes de Limpeza |
-| `GET` / `POST` | `/api/v1/dispatch/process-orders/truck-load` | Alias para `/truck-load` |
-| `GET` / `POST` | `/api/v1/dispatch/process-orders/delivery-route` | Alias para `/delivery-route` |
-| `GET` | `/api/v1/dispatch/trips/{trip_id}/pdf/loading-sheet` | Download binário ou visualização inline do PDF do **Mapa de Carregamento (LIFO) da Carroceria** via `GET` direto (ideal para tags `<a href>` ou `window.open`) |
-| `GET` | `/api/v1/dispatch/trips/{trip_id}/pdf/delivery-route` | Download binário ou visualização inline do PDF do **Roteiro de Entregas TSP com Cobrança** via `GET` direto |
-| `POST` | `/api/v1/dispatch/trips/loading-sheet/pdf` | Emissão de PDF passando o objeto da viagem no corpo da requisição |
-| `POST` | `/api/v1/dispatch/trips/delivery-route/pdf` | Emissão de PDF do roteiro passando o objeto da viagem no corpo da requisição |
+### 2.1. Arquitetura de Endpoints (POST Único + Restante Somente GET)
 
-> [!TIP]
-> **Quando usar `GET` vs `POST` no Frontend?**
-> - **Use `GET`** para carregar as telas de consulta, navegação entre abas ou links de download de PDF (`<a href="..." download>`). O backend utiliza a base simulada/faturada padrão e responde instantaneamente sem exigir o reenvio de payload.
-> - **Use `POST`** apenas quando a interface permitir que o operador envie um novo lote de pedidos JSON ou importe dados customizados do ERP que devem ser processados sob demanda com um corpo de requisição (`Request Body`).
+| Método | Endpoint | Papel no Frontend |
+| :--- | :--- | :--- |
+| **`POST`** | `/api/v1/dispatch/orders` | **Endpoint Único de Envio (`POST`)**: Recebe o JSON com os pedidos faturados do dia. Executa a inteligência de alocação e roteirização e armazena os resultados para consulta. |
+| **`GET`** | `/api/v1/dispatch/truck-load` | **Tela 1: Cargas no Caminhão (`GET` puro)**: Retorna a alocação de cargas por caminhão (carroceria aberta, LIFO, ocupação peso/volume) com drill-down de itens. |
+| **`GET`** | `/api/v1/dispatch/delivery-route` | **Tela 2: Ordem de Entrega / Roteiro (`GET` puro)**: Retorna as paradas ordenadas pelo algoritmo do Caixeiro Viajante (TSP) com endereços, status de cobrança e drill-down. |
+| **`GET`** | `/api/v1/dispatch/mock-orders` | **Mocks de Teste (`GET` puro)**: Retorna a coleção mock canônica (L12608361) para testes na interface. |
+| **`GET`** | `/api/v1/dispatch/trips/{trip_id}/pdf/loading-sheet` | **PDF de Carga (`GET` puro)**: Download ou visualização do Mapa de Carregamento da Carroceria Aberta (compatível com `<a href>` e `window.open`). |
+| **`GET`** | `/api/v1/dispatch/trips/{trip_id}/pdf/delivery-route` | **PDF de Rota (`GET` puro)**: Download ou visualização do Roteiro de Entregas TSP com cobrança. |
+
+> [!IMPORTANT]
+> **Fluxo de Dados no Frontend**:
+> 1. O operador clica para importar/enviar os pedidos $\rightarrow$ Frontend faz **`POST /api/v1/dispatch/orders`** com o JSON dos pedidos faturados.
+> 2. Para renderizar a tela de Cargas no Caminhão $\rightarrow$ Frontend faz **`GET /api/v1/dispatch/truck-load`** (sem payload nenhum).
+> 3. Para renderizar a tela de Ordem de Entregas $\rightarrow$ Frontend faz **`GET /api/v1/dispatch/delivery-route`** (sem payload nenhum).
+> 4. Para baixar/visualizar os PDFs $\rightarrow$ Links nativos HTML `<a href="...">` direto para as rotas **`GET`**.
 
 ---
 
