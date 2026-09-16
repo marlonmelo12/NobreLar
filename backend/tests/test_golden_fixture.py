@@ -11,7 +11,7 @@ from app.services.validation import IndependentValidator
 
 def test_golden_allocation_eixo4_accelo():
     """Valida que o Accelo 815 comporta itens de 6m e respeita a capacidade de 4.800 kg e 18,5 m³."""
-    mock_orders = [
+    sample_orders = [
         {"id": "L01", "total_weight_kg": 2000.0, "total_volume_m3": 1.5, "total_value": 4500.0, "has_long_items": False, "axis_id": "eixo-4-norte-serra"},
         {"id": "L02", "total_weight_kg": 1800.0, "total_volume_m3": 1.2, "total_value": 3900.0, "has_long_items": False, "axis_id": "eixo-4-norte-serra"},
         {"id": "L03", "total_weight_kg": 900.0,  "total_volume_m3": 0.8, "total_value": 2100.0, "has_long_items": False, "axis_id": "eixo-4-norte-serra"},
@@ -21,7 +21,7 @@ def test_golden_allocation_eixo4_accelo():
 
     # Teste 1: Accelo 815 (Comporta 6m, 4.800 kg, 18,50 m³)
     result = solve_load_allocation(
-        orders=mock_orders,
+        orders=sample_orders,
         capacity_kg=4800.0,
         capacity_m3=18.50,
         allows_long_items=True
@@ -33,7 +33,7 @@ def test_golden_allocation_eixo4_accelo():
     assert "L05" in result["selected_order_ids"], "L05 contém peças de 6m e deve ser aceito no caminhão Accelo 815."
 
     # Validação independente do plano do Accelo
-    selected_orders = [o for o in mock_orders if o["id"] in result["selected_order_ids"]]
+    selected_orders = [o for o in sample_orders if o["id"] in result["selected_order_ids"]]
     is_valid, errors = IndependentValidator.validate_plan(
         selected_orders=selected_orders,
         capacity_kg=4800.0,
@@ -46,7 +46,7 @@ def test_golden_allocation_eixo4_accelo():
 
 def test_golden_allocation_eixo4_bongo_rejects_6m():
     """Valida que o Kia Bongo K2500 rejeita expressamente pedidos com peças de 6 metros."""
-    mock_orders = [
+    sample_orders = [
         {"id": "L01", "total_weight_kg": 2000.0, "total_volume_m3": 1.5, "total_value": 4500.0, "has_long_items": False},
         {"id": "L02", "total_weight_kg": 1800.0, "total_volume_m3": 1.2, "total_value": 3900.0, "has_long_items": False},
         {"id": "L03", "total_weight_kg": 900.0,  "total_volume_m3": 0.8, "total_value": 2100.0, "has_long_items": False},
@@ -56,7 +56,7 @@ def test_golden_allocation_eixo4_bongo_rejects_6m():
 
     # Teste 2: Bongo K2500 (NÃO comporta 6m, 1.700 kg, 6,50 m³)
     result_bongo = solve_load_allocation(
-        orders=mock_orders,
+        orders=sample_orders,
         capacity_kg=1700.0,
         capacity_m3=6.50,
         allows_long_items=False

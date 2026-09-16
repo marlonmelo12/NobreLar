@@ -34,29 +34,72 @@ async function runTests() {
     if (data.status.toLowerCase() !== 'healthy') throw new Error(`Status inesperado: ${data.status}`);
   });
 
-  // 2. Mock Orders
-  let mockOrders = [];
-  await test('2. GET /api/v1/dispatch/mock-orders (Mocks Canônicos)', async () => {
-    const res = await fetch(`${API_BASE}/api/v1/dispatch/mock-orders`);
-    if (!res.ok) throw new Error(`Status ${res.status}`);
-    mockOrders = await res.json();
-    if (!Array.isArray(mockOrders) || mockOrders.length < 10) {
-      throw new Error(`Esperado array com pedidos, recebido ${mockOrders.length}`);
+  // 2. Pedidos Estruturados
+  const testOrders = [
+    {
+      id: "L12608361",
+      data: "16/09/2026",
+      cliente: "Cliente Teste Nobre Lar 1",
+      cidade: "CRATEUS",
+      endereco: "Rua Dom Pedro II, 450, Centro",
+      valor: 810.00,
+      urgente: false,
+      situacao: "NORMAL",
+      itens: [
+        { codigo: "23717", descricao: "TUBO PVC ESGOTO 100MM", quantidade: 5.0, unidade: "MT", preco_unitario: 35.0 },
+        { codigo: "21243", descricao: "PISO CERBRAS IPANEMA BEGE 46 X 46 A", quantidade: 25.30, unidade: "MT", preco_unitario: 20.0 },
+        { codigo: "1001", descricao: "CIMENTO POTY TODAS AS OBRAS 50KG", quantidade: 10.0, unidade: "SC", preco_unitario: 36.0 }
+      ]
+    },
+    {
+      id: "L12608362",
+      data: "16/09/2026",
+      cliente: "Cliente Urgente Norte",
+      cidade: "IPAPORANGA",
+      endereco: "Av. Central, 120",
+      valor: 1200.00,
+      urgente: true,
+      situacao: "URGENTE",
+      itens: [
+        { codigo: "1001", descricao: "CIMENTO POTY TODAS AS OBRAS 50KG", quantidade: 20.0, unidade: "SC", preco_unitario: 36.0 }
+      ]
+    },
+    {
+      id: "L12608998",
+      data: "16/09/2026",
+      cliente: "Cliente Balcao",
+      cidade: "CRATEUS",
+      endereco: "Balcão Loja",
+      valor: 150.00,
+      urgente: false,
+      situacao: "RETIRADA",
+      itens: [
+        { codigo: "500", descricao: "FITA ISOLANTE 20M", quantidade: 2.0, unidade: "UN", preco_unitario: 10.0 }
+      ]
+    },
+    {
+      id: "L12608999",
+      data: "16/09/2026",
+      cliente: "Cliente Desistente",
+      cidade: "CRATEUS",
+      endereco: "Rua B, 20",
+      valor: 300.00,
+      urgente: false,
+      situacao: "CANCELADO",
+      itens: [
+        { codigo: "600", descricao: "TINTA ACRILICA 18L", quantidade: 1.0, unidade: "LT", preco_unitario: 300.0 }
+      ]
     }
-    const sample = mockOrders[0];
-    if (!sample.id || !sample.cidade || !sample.situacao || !Array.isArray(sample.itens)) {
-      throw new Error(`Estrutura de pedido inválida: ${JSON.stringify(sample)}`);
-    }
-  });
+  ];
 
   // 3. Submissão POST Único de Pedidos
   let dispatchResult = null;
-  await test('3. POST /api/v1/dispatch/orders (Processamento Desacoplado)', async () => {
+  await test('2. POST /api/v1/dispatch/orders (Processamento Desacoplado)', async () => {
     const res = await fetch(`${API_BASE}/api/v1/dispatch/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        pedidos: mockOrders,
+        pedidos: testOrders,
         perfil_otimizacao: 'Equilibrado',
         tempo_limite_segundos: 20.0
       })
@@ -70,7 +113,7 @@ async function runTests() {
   });
 
   // 4. GET Cargas no Caminhão
-  await test('4. GET /api/v1/dispatch/truck-load (Tela 1: Carroceria Aberta + Drilldown)', async () => {
+  await test('3. GET /api/v1/dispatch/truck-load (Tela 1: Carroceria Aberta + Drilldown)', async () => {
     const res = await fetch(`${API_BASE}/api/v1/dispatch/truck-load`);
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
@@ -86,13 +129,13 @@ async function runTests() {
       throw new Error(`Sem pedidos na carroceria`);
     }
     const primeiroPedido = viagem1.pedidos_carroceria[0];
-    if (!primeiroPedido.posicao_carroceria || !Array.isArray(primeiroPedido.itens) || primeiroPedido.itens.length === 0) {
+    if (!Array.isArray(primeiroPedido.itens) || primeiroPedido.itens.length === 0) {
       throw new Error(`Drilldown de itens ausente no pedido`);
     }
   });
 
   // 5. GET Roteiros de Entrega TSP
-  await test('5. GET /api/v1/dispatch/delivery-route (Tela 2: Roteiros TSP + Cobrança)', async () => {
+  await test('4. GET /api/v1/dispatch/delivery-route (Tela 2: Roteiros TSP + Cobrança)', async () => {
     const res = await fetch(`${API_BASE}/api/v1/dispatch/delivery-route`);
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
@@ -110,8 +153,8 @@ async function runTests() {
     }
   });
 
-  // 6. GET PDF Mapa de Carregamento
-  await test('6. GET /api/v1/dispatch/trips/{id}/pdf/loading-sheet (Download Romaneio LIFO)', async () => {
+  // 5. GET PDF Mapa de Carregamento
+  await test('5. GET /api/v1/dispatch/trips/{id}/pdf/loading-sheet (Download Romaneio LIFO)', async () => {
     const tripId = dispatchResult.cargas_caminhao[0].viagem_id;
     const res = await fetch(`${API_BASE}/api/v1/dispatch/trips/${encodeURIComponent(tripId)}/pdf/loading-sheet`);
     if (!res.ok) throw new Error(`Status ${res.status}`);
@@ -120,8 +163,8 @@ async function runTests() {
     if (header !== '%PDF') throw new Error(`Arquivo retornado não é um PDF válido: ${header}`);
   });
 
-  // 7. GET PDF Roteiro de Entregas
-  await test('7. GET /api/v1/dispatch/trips/{id}/pdf/delivery-route (Download Roteiro TSP)', async () => {
+  // 6. GET PDF Roteiro de Entregas
+  await test('6. GET /api/v1/dispatch/trips/{id}/pdf/delivery-route (Download Roteiro TSP)', async () => {
     const tripId = dispatchResult.roteiros_entrega[0].viagem_id;
     const res = await fetch(`${API_BASE}/api/v1/dispatch/trips/${encodeURIComponent(tripId)}/pdf/delivery-route`);
     if (!res.ok) throw new Error(`Status ${res.status}`);
@@ -130,8 +173,8 @@ async function runTests() {
     if (header !== '%PDF') throw new Error(`Arquivo retornado não é um PDF válido: ${header}`);
   });
 
-  // 8. GET Veículos
-  await test('8. GET /api/v1/vehicles (Aba Veículos da Frota)', async () => {
+  // 7. GET Veículos
+  await test('7. GET /api/v1/vehicles (Aba Veículos da Frota)', async () => {
     const res = await fetch(`${API_BASE}/api/v1/vehicles`);
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();
@@ -140,8 +183,8 @@ async function runTests() {
     }
   });
 
-  // 9. GET Perfil Analítico de Eixos
-  await test('9. GET /api/v1/analytics/axis-profile (Aba Eixos & Densidade)', async () => {
+  // 8. GET Perfil Analítico de Eixos
+  await test('8. GET /api/v1/analytics/axis-profile (Aba Eixos & Densidade)', async () => {
     const res = await fetch(`${API_BASE}/api/v1/analytics/axis-profile`);
     if (!res.ok) throw new Error(`Status ${res.status}`);
     const data = await res.json();

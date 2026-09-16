@@ -2,7 +2,6 @@ import React from 'react';
 import { Truck, Play, RefreshCw, FileJson, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
-  onLoadMock: () => void;
   onOpenImportModal: () => void;
   onProcessDispatch: () => void;
   isProcessing: boolean;
@@ -13,7 +12,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  onLoadMock,
   onOpenImportModal,
   onProcessDispatch,
   isProcessing,
@@ -75,17 +73,6 @@ export const Header: React.FC<HeaderProps> = ({
               </select>
             </div>
 
-            {/* Botão Carregar Mock */}
-            <button
-              type="button"
-              onClick={onLoadMock}
-              disabled={isProcessing}
-              title="Carrega 30 pedidos estruturados do mock oficial da Nobre Lar"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 rounded-xl border border-slate-700 transition disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 text-nobre-400 ${isProcessing ? 'animate-spin' : ''}`} />
-              <span>Carregar Mock</span>
-            </button>
 
             {/* Botão Importar JSON */}
             <button

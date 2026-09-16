@@ -59,14 +59,6 @@ class ApiService {
   }
 
   /**
-   * Obtém os pedidos mock estruturados da Nobre Lar (30 pedidos).
-   * Endpoint GET puro.
-   */
-  async fetchMockOrders(): Promise<DecoupledOrderInput[]> {
-    return this.request<DecoupledOrderInput[]>('/api/v1/dispatch/mock-orders');
-  }
-
-  /**
    * Envia o lote JSON de pedidos faturados para processamento.
    * Endpoint ÚNICO POST.
    */

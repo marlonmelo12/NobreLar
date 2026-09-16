@@ -67,46 +67,6 @@ async def process_daily_dispatch(
 
 
 @router.post(
-    "/simulate-mock",
-    summary="Executa a simulação oficial com o arquivo mock de faturamento diário",
-    description="Executa o pipeline completo utilizando o arquivo mock com dados realistas da região de Crateús, "
-                "pedidos balcão, cancelados, urgentes, peças de 6m e sobrecarga de viagens em múltiplos eixos."
-)
-def simulate_daily_mock(
-    profile_name: str = "Equilibrado",
-    time_limit_seconds: float = 20.0,
-    db: Session = Depends(get_db)
-) -> Dict[str, Any]:
-    """Executa a simulação completa com a base mock oficial."""
-    mock_file = settings.DATA_RAW_DIR / "mock_faturamento_diario.csv"
-    if not mock_file.exists():
-        # Tenta caminhos alternativos
-        candidates = [
-            Path("/data/raw/mock_faturamento_diario.csv"),
-            Path("./data/raw/mock_faturamento_diario.csv"),
-            settings.BASE_DIR.parent / "data" / "raw" / "mock_faturamento_diario.csv",
-        ]
-        for c in candidates:
-            if c.exists():
-                mock_file = c
-                break
-
-    if not mock_file.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Arquivo mock oficial não encontrado em: {mock_file}"
-        )
-
-    pipeline = DailyDispatchPipeline(db=db)
-    result = pipeline.process_daily_billing(
-        csv_file_path_or_df=mock_file,
-        profile_name=profile_name,
-        time_limit_seconds=time_limit_seconds
-    )
-    return result
-
-
-@router.post(
     "/trips/loading-sheet/pdf",
     summary="Emite PDF do Mapa de Carregamento de Doca para uma viagem do pipeline"
 )
@@ -152,23 +112,6 @@ def generate_trip_delivery_route_pdf(trip_data: Dict[str, Any]):
         )
 
 
-def _get_default_mock_orders() -> List[Dict[str, Any]]:
-    """Obtém a lista padrão de pedidos mock estruturados."""
-    mock_candidates = [
-        settings.DATA_RAW_DIR / "mock_pedidos_estrutura.json",
-        Path("/data/raw/mock_pedidos_estrutura.json"),
-        Path("./data/raw/mock_pedidos_estrutura.json"),
-        settings.BASE_DIR.parent / "data" / "raw" / "mock_pedidos_estrutura.json",
-    ]
-    for p in mock_candidates:
-        if p.exists():
-            try:
-                return json.loads(p.read_text(encoding="utf-8"))
-            except Exception as e:
-                logger.error(f"Erro ao ler mock de pedidos: {e}")
-    return []
-
-
 class DispatchStateStore:
     """Armazenamento em memória do último processamento de despacho logístico."""
     def __init__(self):
@@ -185,16 +128,7 @@ class DispatchStateStore:
         profile_name: str = "Equilibrado",
         time_limit: float = 20.0
     ) -> List[Dict[str, Any]]:
-        if self.last_trips is not None and len(self.last_trips) > 0:
-            return self.last_trips
-        orders_raw = _get_default_mock_orders()
-        if orders_raw:
-            raw_res = pipeline.process_orders_collection(
-                raw_orders=orders_raw,
-                profile_name=profile_name,
-                time_limit_seconds=time_limit
-            )
-            self.last_trips = raw_res.get("trips", [])
+        if self.last_trips is not None:
             return self.last_trips
         return []
 
@@ -218,7 +152,7 @@ def get_trip_loading_sheet_pdf(
 
     matched_trip = next((t for t in trips if t["trip_id"] == trip_id), None)
     if not matched_trip:
-        if trip_id in ("default", "current", "1", "mock", "viagem-1") and trips:
+        if trip_id in ("default", "current", "1", "viagem-1") and trips:
             matched_trip = trips[0]
         else:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Viagem '{trip_id}' não encontrada.")
@@ -252,7 +186,7 @@ def get_trip_delivery_route_pdf(
 
     matched_trip = next((t for t in trips if t["trip_id"] == trip_id), None)
     if not matched_trip:
-        if trip_id in ("default", "current", "1", "mock", "viagem-1") and trips:
+        if trip_id in ("default", "current", "1", "viagem-1") and trips:
             matched_trip = trips[0]
         else:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Viagem '{trip_id}' não encontrada.")
@@ -269,22 +203,6 @@ def get_trip_delivery_route_pdf(
         logger.error(f"Erro ao gerar PDF de roteiro TSP via GET: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-
-@router.get(
-    "/mock-orders",
-    summary="Retorna a lista de pedidos mock estruturados baseados no pedido oficial da Nobre Lar",
-    response_model=List[Dict[str, Any]]
-)
-def get_mock_orders_json():
-    """Retorna a coleção mock JSON estruturada baseada no espelho do pedido L12608361 da Nobre Lar."""
-    orders = _get_default_mock_orders()
-    if orders:
-        return orders
-
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="Arquivo mock_pedidos_estrutura.json não encontrado."
-    )
 
 
 def _extract_batch_orders_and_params(
@@ -390,7 +308,11 @@ def get_truck_load(
     pipeline = DailyDispatchPipeline(db=db)
     trips = dispatch_state.get_trips(pipeline, perfil_otimizacao, tempo_limite_segundos)
     if not trips:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma carga disponível.")
+        return {
+            "status": "SUCESSO",
+            "total_viagens": 0,
+            "viagens": []
+        }
 
     trips_formatted = pipeline.format_truck_load_response(trips)
     return {
@@ -419,7 +341,11 @@ def get_delivery_route(
     pipeline = DailyDispatchPipeline(db=db)
     trips = dispatch_state.get_trips(pipeline, perfil_otimizacao, tempo_limite_segundos)
     if not trips:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhuma rota disponível.")
+        return {
+            "status": "SUCESSO",
+            "total_viagens": 0,
+            "viagens": []
+        }
 
     trips_formatted = pipeline.format_delivery_route_response(trips)
     return {
@@ -431,7 +357,7 @@ def get_delivery_route(
 
 @router.get(
     "/process-orders",
-    summary="Consulta consolidada completa via GET (usando pedidos em memória / mock)",
+    summary="Consulta consolidada completa via GET (usando pedidos em memória)",
     response_model=DecoupledDispatchResponse
 )
 def get_orders_decoupled_summary(
@@ -443,22 +369,22 @@ def get_orders_decoupled_summary(
     if dispatch_state.last_result:
         return dispatch_state.last_result
 
-    orders_raw = _get_default_mock_orders()
-    if not orders_raw:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum pedido padrão encontrado.")
-
-    pipeline = DailyDispatchPipeline(db=db)
-    raw_res = pipeline.process_orders_collection(
-        raw_orders=orders_raw,
-        profile_name=perfil_otimizacao,
-        time_limit_seconds=tempo_limite_segundos
-    )
-    result = pipeline.process_orders_json(
-        orders=orders_raw,
-        profile_name=perfil_otimizacao,
-        time_limit_seconds=tempo_limite_segundos
-    )
-    dispatch_state.set_result(result, raw_res.get("trips", []))
-    return result
+    return {
+        "status": "SUCESSO",
+        "total_pedidos_recebidos": 0,
+        "total_pedidos_roteirizados": 0,
+        "total_pedidos_descartados": 0,
+        "descartes": [],
+        "cargas_caminhao": {
+            "status": "SUCESSO",
+            "total_viagens": 0,
+            "viagens": []
+        },
+        "rotas_entrega": {
+            "status": "SUCESSO",
+            "total_viagens": 0,
+            "viagens": []
+        }
+    }
 
 

@@ -13,7 +13,6 @@ Projetada para operação sem dependência de upload de arquivos CSV, ingerindo 
 - `POST /api/v1/dispatch/orders` (ou `/process-orders`): **Endpoint Único de Envio (POST)** que recebe o JSON de pedidos, calcula e armazena os planos em memória.
 - `GET /api/v1/dispatch/truck-load`: Retorna **exclusivamente via GET** a montagem de carga nos caminhões (carroceria aberta) com drill-down.
 - `GET /api/v1/dispatch/delivery-route`: Retorna **exclusivamente via GET** o roteiro de entrega (TSP) com endereços e cobrança.
-- `GET /api/v1/dispatch/mock-orders`: Retorna a coleção mock estruturada (L12608361) via `GET`.
 - `GET /api/v1/dispatch/trips/{trip_id}/pdf/loading-sheet`: Emissão e download direto do PDF oficial do Mapa de Carregamento da Carroceria via `GET`.
 - `GET /api/v1/dispatch/trips/{trip_id}/pdf/delivery-route`: Emissão e download direto do PDF oficial do Roteiro de Entregas TSP via `GET`.
 

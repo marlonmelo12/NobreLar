@@ -14,7 +14,7 @@ client = TestClient(app)
 
 
 @pytest.fixture
-def mock_trip_payload():
+def sample_trip_payload():
     return {
         "trip_id": "eixo-4-norte-serra-V1",
         "trip_number": 1,
@@ -36,7 +36,7 @@ def mock_trip_payload():
         "items": [
             {
                 "id": "L401",
-                "external_id": "MOCK-E4-01",
+                "external_id": "PED-E4-01",
                 "city_name": "IPAPORANGA",
                 "address_line": "Rua Franklin José Vieira, 100, Centro",
                 "weight_kg": 2300.0,
@@ -50,7 +50,7 @@ def mock_trip_payload():
             },
             {
                 "id": "L402",
-                "external_id": "MOCK-E4-02",
+                "external_id": "PED-E4-02",
                 "city_name": "IPAPORANGA",
                 "address_line": "Av. 22 de Setembro, 240",
                 "weight_kg": 7.5,
@@ -64,7 +64,7 @@ def mock_trip_payload():
             },
             {
                 "id": "L404",
-                "external_id": "MOCK-E4-04",
+                "external_id": "PED-E4-04",
                 "city_name": "PORANGA",
                 "address_line": "Rua do Comércio, 310",
                 "weight_kg": 1492.5,
@@ -80,31 +80,31 @@ def mock_trip_payload():
     }
 
 
-def test_report_service_loading_sheet(mock_trip_payload):
+def test_report_service_loading_sheet(sample_trip_payload):
     """Valida renderização de HTML e compilação do PDF de carregamento na doca."""
-    html_str = ReportService.render_loading_sheet_html(mock_trip_payload)
+    html_str = ReportService.render_loading_sheet_html(sample_trip_payload)
     assert "MAPA DE CARREGAMENTO DE DOCA (ESTIVAGEM LIFO)" in html_str
     assert "1º (FUNDO)" in html_str
     assert "PORTA" in html_str
     assert "TUBOS/BARRAS DE 6 METROS" in html_str
     assert "Conferente de Expedição / Doca" in html_str
 
-    pdf_bytes = ReportService.generate_loading_sheet_pdf(mock_trip_payload)
+    pdf_bytes = ReportService.generate_loading_sheet_pdf(sample_trip_payload)
     assert isinstance(pdf_bytes, bytes)
     assert len(pdf_bytes) > 1000
     assert pdf_bytes.startswith(b"%PDF-")
 
 
-def test_report_service_delivery_route(mock_trip_payload):
+def test_report_service_delivery_route(sample_trip_payload):
     """Valida renderização de HTML e compilação do PDF de roteiro de entregas TSP."""
-    html_str = ReportService.render_delivery_route_html(mock_trip_payload)
+    html_str = ReportService.render_delivery_route_html(sample_trip_payload)
     assert "ROTEIRO DE ENTREGAS OTIMIZADO (ALGORITMO DO CAIXEIRO VIAJANTE - TSP)" in html_str
     assert "1ª" in html_str
     assert "A RECEBER" in html_str
     assert "Assinatura Cliente" in html_str
     assert "142.5 km" in html_str or "142.4" in html_str
 
-    pdf_bytes = ReportService.generate_delivery_route_pdf(mock_trip_payload)
+    pdf_bytes = ReportService.generate_delivery_route_pdf(sample_trip_payload)
     assert isinstance(pdf_bytes, bytes)
     assert len(pdf_bytes) > 1000
     assert pdf_bytes.startswith(b"%PDF-")
@@ -152,12 +152,12 @@ def test_api_load_plan_pdf_and_html_endpoints():
     assert res_manifest.content.startswith(b"%PDF-")
 
 
-def test_api_dispatch_trip_pdf_endpoints(mock_trip_payload):
+def test_api_dispatch_trip_pdf_endpoints(sample_trip_payload):
     """Valida os endpoints de PDF de viagens geradas pelo pipeline diário."""
     # 1. Carregamento de Doca
     res_loading = client.post(
         "/api/v1/dispatch/trips/loading-sheet/pdf",
-        json=mock_trip_payload
+        json=sample_trip_payload
     )
     assert res_loading.status_code == 200
     assert res_loading.headers["content-type"] == "application/pdf"
@@ -166,7 +166,7 @@ def test_api_dispatch_trip_pdf_endpoints(mock_trip_payload):
     # 2. Roteiro de Entregas TSP
     res_route = client.post(
         "/api/v1/dispatch/trips/delivery-route/pdf",
-        json=mock_trip_payload
+        json=sample_trip_payload
     )
     assert res_route.status_code == 200
     assert res_route.headers["content-type"] == "application/pdf"

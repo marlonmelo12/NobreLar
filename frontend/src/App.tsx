@@ -35,60 +35,39 @@ export const App: React.FC = () => {
 
   // 2. Executa a otimização de despacho (CP-SAT multi-viagens + TSP)
   const handleExecuteDispatch = useCallback(async () => {
+    if (!orders || orders.length === 0) {
+      alert('Nenhum pedido carregado. Por favor, selecione um arquivo JSON ou CSV na tela de Preparação antes de executar.');
+      return;
+    }
+
     setIsProcessing(true);
-
     try {
-      let ordersToProcess = orders;
-      if (!ordersToProcess || ordersToProcess.length === 0) {
-        ordersToProcess = await api.fetchMockOrders();
-        setOrders(ordersToProcess);
-      }
-
-      const result = await api.processOrders(ordersToProcess, 'Equilibrado', 20.0);
+      const result = await api.processOrders(orders, 'Equilibrado', 20.0);
       setDispatchResult(result);
       const timeStr = getFormattedNow();
       setLastExecutionTime(timeStr);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Falha ao processar despacho de pedidos.';
+      alert(msg);
       console.error(msg);
     } finally {
       setIsProcessing(false);
     }
   }, [orders]);
 
-  // 3. Carrega o mock oficial de 30 pedidos
-  const handleLoadMock = useCallback(async () => {
-    setIsProcessing(true);
-
-    try {
-      const mock = await api.fetchMockOrders();
-      setOrders(mock);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Falha ao carregar pedidos mock.';
-      console.error(msg);
-    } finally {
-      setIsProcessing(false);
-    }
-  }, []);
-
-  // 4. Inicialização no Mount
+  // 3. Inicialização no Mount (Verifica saúde e recupera despacho anterior se houver)
   useEffect(() => {
     checkHealth();
-    // Carrega mock e tenta recuperar resultado em memória
     api
-      .fetchMockOrders()
-      .then((m) => {
-        setOrders(m);
-        return api.fetchConsolidatedSummary();
-      })
+      .fetchConsolidatedSummary()
       .then((res) => {
-        if (res && res.status === 'SUCESSO') {
+        if (res && res.status === 'SUCESSO' && res.cargas_caminhao && res.cargas_caminhao.length > 0) {
           setDispatchResult(res);
           setLastExecutionTime(getFormattedNow());
         }
       })
       .catch(() => {
-        // Fallback inicial
+        // Sem despacho anterior em memória
       });
   }, [checkHealth]);
 
@@ -108,7 +87,7 @@ export const App: React.FC = () => {
           {activeNav === 'dashboard' && (
             <DashboardView
               dispatchResult={dispatchResult}
-              totalOrdersCount={orders.length || 30}
+              totalOrdersCount={orders.length}
               lastExecutionTime={lastExecutionTime}
               isProcessing={isProcessing}
               onExecute={handleExecuteDispatch}
@@ -120,7 +99,6 @@ export const App: React.FC = () => {
               orders={orders}
               dispatchResult={dispatchResult}
               isProcessing={isProcessing}
-              onLoadMock={handleLoadMock}
               onUploadCustomOrders={(newOrders) => setOrders(newOrders)}
               onExecuteDispatch={handleExecuteDispatch}
             />

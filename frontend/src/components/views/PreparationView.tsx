@@ -22,7 +22,6 @@ interface PreparationViewProps {
   orders: DecoupledOrderInput[];
   dispatchResult: DecoupledDispatchResponse | null;
   isProcessing: boolean;
-  onLoadMock: () => void;
   onUploadCustomOrders: (orders: DecoupledOrderInput[]) => void;
   onExecuteDispatch: () => void;
 }
@@ -31,7 +30,6 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
   orders,
   dispatchResult,
   isProcessing,
-  onLoadMock,
   onUploadCustomOrders,
   onExecuteDispatch,
 }) => {
@@ -88,12 +86,10 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
             : [];
           onUploadCustomOrders(list);
         } else {
-          // Fallback para mock caso seja CSV cru
-          onLoadMock();
+          alert('Por favor, selecione um arquivo JSON contendo os pedidos faturados.');
         }
       } catch (err) {
-        alert('Formato de arquivo inválido. Carregando mock oficial.');
-        onLoadMock();
+        alert('Formato de arquivo inválido. Certifique-se de selecionar um JSON válido.');
       }
     };
     reader.readAsText(file);
@@ -122,7 +118,7 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
             <div className="flex items-center gap-3 w-full md:w-auto">
               <Upload className="w-5 h-5 text-amber-600" />
               <span className="font-semibold text-slate-800 text-sm md:text-base">
-                Carregar CSV / Lote JSON
+                Carregar Arquivo de Pedidos (JSON / CSV)
               </span>
               <label className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg border border-slate-300 cursor-pointer transition">
                 Escolher Arquivo
@@ -136,12 +132,14 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              <button
-                onClick={onLoadMock}
-                className="w-full md:w-auto bg-amber-400 hover:bg-amber-500 active:bg-amber-600 text-slate-950 font-bold px-8 py-2.5 rounded-xl shadow-sm transition cursor-pointer text-sm"
-              >
-                Carregar Mock Oficial (30 Pedidos)
-              </button>
+              {orders.length > 0 && (
+                <button
+                  onClick={() => onUploadCustomOrders([])}
+                  className="text-xs text-rose-600 hover:text-rose-800 font-semibold px-3 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 transition cursor-pointer"
+                >
+                  Limpar Pedidos ({orders.length})
+                </button>
+              )}
             </div>
           </div>
 
@@ -187,53 +185,63 @@ export const PreparationView: React.FC<PreparationViewProps> = ({
             </div>
           </div>
 
-          {/* Tabela de Produtos Carregados */}
-          <div className="border border-amber-400 bg-white rounded-2xl overflow-hidden shadow-sm">
-            <div className="max-h-96 overflow-y-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-amber-300 sticky top-0">
-                  <tr>
-                    <th className="py-3 px-4">Produto</th>
-                    <th className="py-3 px-4">Unidade de Venda</th>
-                    <th className="py-3 px-4 text-center">Quantidade</th>
-                    <th className="py-3 px-4 text-right">Volume</th>
-                    <th className="py-3 px-4 text-right">Peso</th>
-                    <th className="py-3 px-4 text-right">Valor</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {allItems.slice(0, 50).map((it, idx) => {
-                    const volItem = it.quantidade * 0.015;
-                    const pesoItem = it.quantidade * 25.0;
-                    const valItem = it.subtotal || it.quantidade * (it.preco_unitario || 38.0);
-                    return (
-                      <tr key={idx} className="hover:bg-amber-50/50 transition">
-                        <td className="py-2.5 px-4 font-medium text-slate-900">
-                          {it.descricao}
-                          <span className="block text-[10px] text-slate-400 font-mono">
-                            Cód: {it.codigo} • Pedido: {it.pedidoId} ({it.cidade})
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-4 text-slate-600">{it.unidade}</td>
-                        <td className="py-2.5 px-4 text-center font-mono font-semibold">
-                          {it.quantidade}
-                        </td>
-                        <td className="py-2.5 px-4 text-right font-mono text-slate-600">
-                          {volItem.toFixed(3)} m³
-                        </td>
-                        <td className="py-2.5 px-4 text-right font-mono text-slate-600">
-                          {pesoItem.toFixed(1)} Kg
-                        </td>
-                        <td className="py-2.5 px-4 text-right font-mono font-semibold text-slate-900">
-                          {fmtMoney(valItem)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {/* Tabela de Produtos Carregados ou Estado Vazio */}
+          {totalPedidos === 0 ? (
+            <div className="border border-amber-400/60 border-dashed bg-white rounded-2xl p-12 text-center shadow-sm">
+              <Upload className="w-10 h-10 text-amber-500/70 mx-auto mb-3" />
+              <h3 className="font-bold text-slate-800 text-base">Nenhum pedido carregado</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                Clique em <strong>Escolher Arquivo</strong> acima para carregar o lote JSON ou CSV contendo os pedidos faturados reais.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="border border-amber-400 bg-white rounded-2xl overflow-hidden shadow-sm">
+              <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-amber-300 sticky top-0">
+                    <tr>
+                      <th className="py-3 px-4">Produto</th>
+                      <th className="py-3 px-4">Unidade de Venda</th>
+                      <th className="py-3 px-4 text-center">Quantidade</th>
+                      <th className="py-3 px-4 text-right">Volume</th>
+                      <th className="py-3 px-4 text-right">Peso</th>
+                      <th className="py-3 px-4 text-right">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {allItems.slice(0, 50).map((it, idx) => {
+                      const volItem = it.quantidade * 0.015;
+                      const pesoItem = it.quantidade * 25.0;
+                      const valItem = it.subtotal || it.quantidade * (it.preco_unitario || 38.0);
+                      return (
+                        <tr key={idx} className="hover:bg-amber-50/50 transition">
+                          <td className="py-2.5 px-4 font-medium text-slate-900">
+                            {it.descricao}
+                            <span className="block text-[10px] text-slate-400 font-mono">
+                              Cód: {it.codigo} • Pedido: {it.pedidoId} ({it.cidade})
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-4 text-slate-600">{it.unidade}</td>
+                          <td className="py-2.5 px-4 text-center font-mono font-semibold">
+                            {it.quantidade}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono text-slate-600">
+                            {volItem.toFixed(3)} m³
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono text-slate-600">
+                            {pesoItem.toFixed(1)} Kg
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono font-semibold text-slate-900">
+                            {fmtMoney(valItem)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Botão Inferior de Execução */}
           <div className="flex items-center justify-between pt-2">

@@ -31,7 +31,6 @@ A documentação interativa Swagger/OpenAPI está disponível em `/docs`.
 | **`POST`** | `/api/v1/dispatch/orders` | **Endpoint Único de Envio (`POST`)**: Recebe o JSON com os pedidos faturados do dia. Executa a inteligência de alocação e roteirização e armazena os resultados para consulta. |
 | **`GET`** | `/api/v1/dispatch/truck-load` | **Tela 1: Cargas no Caminhão (`GET` puro)**: Retorna a alocação de cargas por caminhão (carroceria aberta, LIFO, ocupação peso/volume) com drill-down de itens. |
 | **`GET`** | `/api/v1/dispatch/delivery-route` | **Tela 2: Ordem de Entrega / Roteiro (`GET` puro)**: Retorna as paradas ordenadas pelo algoritmo do Caixeiro Viajante (TSP) com endereços, status de cobrança e drill-down. |
-| **`GET`** | `/api/v1/dispatch/mock-orders` | **Mocks de Teste (`GET` puro)**: Retorna a coleção mock canônica (L12608361) para testes na interface. |
 | **`GET`** | `/api/v1/dispatch/trips/{trip_id}/pdf/loading-sheet` | **PDF de Carga (`GET` puro)**: Download ou visualização do Mapa de Carregamento da Carroceria Aberta (compatível com `<a href>` e `window.open`). |
 | **`GET`** | `/api/v1/dispatch/trips/{trip_id}/pdf/delivery-route` | **PDF de Rota (`GET` puro)**: Download ou visualização do Roteiro de Entregas TSP com cobrança. |
 
@@ -530,14 +529,6 @@ import {
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1/dispatch';
 
 export const dispatchService = {
-  /**
-   * Obtém a coleção mock oficial para testar a interface.
-   */
-  async getMockOrders(): Promise<OrderInput[]> {
-    const res = await axios.get<OrderInput[]>(`${API_BASE_URL}/mock-orders`);
-    return res.data;
-  },
-
   /**
    * Consulta direta via GET: Carrega as cargas nos caminhões (Carroceria Aberta).
    * Não requer envio de body! Ideal para renderizar a tela inicial.

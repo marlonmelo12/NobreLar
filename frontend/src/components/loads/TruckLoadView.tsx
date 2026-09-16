@@ -20,7 +20,7 @@ export const TruckLoadView: React.FC<TruckLoadViewProps> = ({ cargas }) => {
         </div>
         <h3 className="text-base font-bold text-slate-800">Nenhuma Viagem Alocada</h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-          Carregue o mock de pedidos ou importe um arquivo JSON no cabeçalho e clique em &quot;Processar Lote&quot;.
+          Importe um arquivo JSON ou CSV de pedidos e clique em &quot;Processar Lote&quot;.
         </p>
       </div>
     );

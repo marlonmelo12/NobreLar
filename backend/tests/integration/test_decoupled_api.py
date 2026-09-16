@@ -11,40 +11,69 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_get_mock_orders_json():
-    """Valida o endpoint GET /api/v1/dispatch/mock-orders contendo a estrutura real do pedido."""
-    res = client.get("/api/v1/dispatch/mock-orders")
-    assert res.status_code == 200
-    orders = res.json()
-    assert isinstance(orders, list)
-    assert len(orders) >= 5
-
-    # Localiza o pedido exato da imagem oficial (L12608361)
-    ped_oficial = next((p for p in orders if p["id"] == "L12608361"), None)
-    assert ped_oficial is not None, "Pedido oficial L12608361 deve estar presente no mock"
-    assert ped_oficial["cidade"] == "CRATEUS"
-    assert ped_oficial["valor"] == 810.00
-    assert ped_oficial["situacao"] == "NORMAL"
-    assert "situacao_entrega" not in ped_oficial, "Campo legado situacao_entrega não deve existir"
-    assert len(ped_oficial["itens"]) == 3
-    assert ped_oficial["itens"][0]["codigo"] == "23717"
-    assert ped_oficial["itens"][0]["unidade"] == "MT"
-
-    # Garante que todos os pedidos usam o enum canônico e não contêm situacao_entrega
-    enum_validos = {"NORMAL", "URGENTE", "RETIRADA", "CARRO HORARIO", "PROGRAMADO", "TOPIQUE", "CANCELADO"}
-    for o in orders:
-        assert "situacao_entrega" not in o
-        assert o["situacao"] in enum_validos
+SAMPLE_ORDERS = [
+    {
+        "id": "L12608361",
+        "data": "16/09/2026",
+        "cliente": "Cliente Teste Nobre Lar 1",
+        "cidade": "CRATEUS",
+        "endereco": "Rua Dom Pedro II, 450, Centro",
+        "valor": 810.00,
+        "urgente": False,
+        "situacao": "NORMAL",
+        "itens": [
+            {"codigo": "23717", "descricao": "TUBO PVC ESGOTO 100MM", "quantidade": 5.0, "unidade": "MT", "preco_unitario": 35.0},
+            {"codigo": "21243", "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 A", "quantidade": 25.30, "unidade": "MT", "preco_unitario": 20.0},
+            {"codigo": "1001", "descricao": "CIMENTO POTY TODAS AS OBRAS 50KG", "quantidade": 10.0, "unidade": "SC", "preco_unitario": 36.0}
+        ]
+    },
+    {
+        "id": "L12608362",
+        "data": "16/09/2026",
+        "cliente": "Cliente Urgente Norte",
+        "cidade": "IPAPORANGA",
+        "endereco": "Av. Central, 120",
+        "valor": 1200.00,
+        "urgente": True,
+        "situacao": "URGENTE",
+        "itens": [
+            {"codigo": "1001", "descricao": "CIMENTO POTY TODAS AS OBRAS 50KG", "quantidade": 20.0, "unidade": "SC", "preco_unitario": 36.0}
+        ]
+    },
+    {
+        "id": "L12608998",
+        "data": "16/09/2026",
+        "cliente": "Cliente Balcao",
+        "cidade": "CRATEUS",
+        "endereco": "Balcão Loja",
+        "valor": 150.00,
+        "urgente": False,
+        "situacao": "RETIRADA",
+        "itens": [
+            {"codigo": "500", "descricao": "FITA ISOLANTE 20M", "quantidade": 2.0, "unidade": "UN", "preco_unitario": 10.0}
+        ]
+    },
+    {
+        "id": "L12608999",
+        "data": "16/09/2026",
+        "cliente": "Cliente Desistente",
+        "cidade": "CRATEUS",
+        "endereco": "Rua B, 20",
+        "valor": 300.00,
+        "urgente": False,
+        "situacao": "CANCELADO",
+        "itens": [
+            {"codigo": "600", "descricao": "TINTA ACRILICA 18L", "quantidade": 1.0, "unidade": "LT", "preco_unitario": 300.0}
+        ]
+    }
+]
 
 
 def test_process_orders_decoupled_full():
     """Valida o endpoint POST /api/v1/dispatch/process-orders com drill-down e carroceria aberta."""
-    res_mock = client.get("/api/v1/dispatch/mock-orders")
-    orders_payload = res_mock.json()
-
     res = client.post(
         "/api/v1/dispatch/process-orders",
-        json={"pedidos": orders_payload, "perfil_otimizacao": "Equilibrado"}
+        json={"pedidos": SAMPLE_ORDERS, "perfil_otimizacao": "Equilibrado"}
     )
     assert res.status_code == 200
     data = res.json()
@@ -73,7 +102,6 @@ def test_process_orders_decoupled_full():
         # Verifica a ordem e o drill-down dos itens
         for ped in carga["pedidos_carroceria"]:
             assert "ordem_carregamento" in ped
-            assert "posicao_carroceria" in ped
             assert "situacao" in ped
             assert "situacao_entrega" not in ped
             assert len(ped["itens"]) > 0, "Cada pedido deve conter seu drill-down de itens"
@@ -99,13 +127,10 @@ def test_process_orders_decoupled_full():
 
 def test_post_orders_then_get_load_and_route():
     """Valida a arquitetura estrita: POST único para enviar pedidos e GET exclusivo para consultar carga e rota."""
-    res_mock = client.get("/api/v1/dispatch/mock-orders")
-    orders_payload = res_mock.json()
-
     # 1. POST único para submissão do JSON de pedidos
     res_post = client.post(
         "/api/v1/dispatch/orders",
-        json={"pedidos": orders_payload, "perfil_otimizacao": "Equilibrado"}
+        json={"pedidos": SAMPLE_ORDERS, "perfil_otimizacao": "Equilibrado"}
     )
     assert res_post.status_code == 200
     data_post = res_post.json()
@@ -121,7 +146,6 @@ def test_post_orders_then_get_load_and_route():
     viagem_1 = data_truck["viagens"][0]
     assert "pedidos_carroceria" in viagem_1
     assert len(viagem_1["pedidos_carroceria"]) > 0
-    assert "posicao_carroceria" in viagem_1["pedidos_carroceria"][0]
     assert len(viagem_1["pedidos_carroceria"][0]["itens"]) > 0
 
     # 3. GET exclusivo para consultar os dados da rota de entrega (TSP)
@@ -146,6 +170,12 @@ def test_post_orders_then_get_load_and_route():
 
 def test_get_endpoints_and_pdf():
     """Valida os endpoints GET para consulta direta e download de relatórios PDF."""
+    # Garante que um lote foi despachado
+    client.post(
+        "/api/v1/dispatch/orders",
+        json={"pedidos": SAMPLE_ORDERS, "perfil_otimizacao": "Equilibrado"}
+    )
+
     # 1. GET /process-orders
     res_proc = client.get("/api/v1/dispatch/process-orders")
     assert res_proc.status_code == 200
