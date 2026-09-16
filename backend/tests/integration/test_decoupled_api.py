@@ -24,9 +24,17 @@ def test_get_mock_orders_json():
     assert ped_oficial is not None, "Pedido oficial L12608361 deve estar presente no mock"
     assert ped_oficial["cidade"] == "CRATEUS"
     assert ped_oficial["valor"] == 810.00
+    assert ped_oficial["situacao"] == "NORMAL"
+    assert "situacao_entrega" not in ped_oficial, "Campo legado situacao_entrega não deve existir"
     assert len(ped_oficial["itens"]) == 3
     assert ped_oficial["itens"][0]["codigo"] == "23717"
     assert ped_oficial["itens"][0]["unidade"] == "MT"
+
+    # Garante que todos os pedidos usam o enum canônico e não contêm situacao_entrega
+    enum_validos = {"NORMAL", "URGENTE", "RETIRADA", "CARRO HORARIO", "PROGRAMADO", "TOPIQUE", "CANCELADO"}
+    for o in orders:
+        assert "situacao_entrega" not in o
+        assert o["situacao"] in enum_validos
 
 
 def test_process_orders_decoupled_full():
@@ -47,11 +55,11 @@ def test_process_orders_decoupled_full():
     assert "roteiros_entrega" in data
     assert "descartes_limpeza" in data
 
-    # 1. Validação de Descartes de Limpeza (Balcão e Cancelado)
+    # 1. Validação de Descartes de Limpeza (Balcão e Cancelado via campo situacao)
     descartes = data["descartes_limpeza"]
     pedidos_descartados = [d["pedido"] for d in descartes]
-    assert "L12608998" in pedidos_descartados, "Pedido com RETIRADA balcão deve ser descartado"
-    assert "L12608999" in pedidos_descartados, "Pedido Cancelado deve ser descartado"
+    assert "L12608998" in pedidos_descartados, "Pedido com situacao RETIRADA balcão deve ser descartado"
+    assert "L12608999" in pedidos_descartados, "Pedido com situacao CANCELADO deve ser descartado"
 
     # 2. Validação da Visão Cargas no Caminhão (Carroceria Aberta + Drill-down)
     cargas = data["cargas_caminhao"]
@@ -66,7 +74,8 @@ def test_process_orders_decoupled_full():
         for ped in carga["pedidos_carroceria"]:
             assert "ordem_carregamento" in ped
             assert "posicao_carroceria" in ped
-            assert "itens" in ped
+            assert "situacao" in ped
+            assert "situacao_entrega" not in ped
             assert len(ped["itens"]) > 0, "Cada pedido deve conter seu drill-down de itens"
             primeiro_item = ped["itens"][0]
             assert "codigo" in primeiro_item
@@ -83,7 +92,8 @@ def test_process_orders_decoupled_full():
             assert "parada" in parada
             assert "endereco_completo" in parada
             assert "status_pagamento" in parada
-            assert "itens" in parada
+            assert "situacao" in parada
+            assert "situacao_entrega" not in parada
             assert len(parada["itens"]) > 0, "Cada parada deve conter os itens a descarregar"
 
 

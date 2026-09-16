@@ -296,21 +296,30 @@ class DailyDispatchPipeline:
         if clean_id == "INVALIDO":
             return False, None, None
 
-        # 1. Regra de Limpeza: Retirada no balcão e cancelados
-        sit_entrega = str(row_dict.get("situacao_entrega") or row_dict.get("Situacao_CSV_Entrega") or "").strip().upper()
-        if sit_entrega == "RETIRADA":
-            return False, None, {
-                "pedido": str(raw_id),
-                "regra": "retirada_balcao",
-                "motivo": "Pedido com retirada direta no balcão da loja não compõe carga de transporte."
-            }
+        # 1. Situação operacional do pedido (Enum canônico do CSV: NORMAL, URGENTE, RETIRADA, CARRO HORARIO, PROGRAMADO, TOPIQUE, CANCELADO)
+        sit_cadastral = str(row_dict.get("Situacao", "")).strip().upper()
+        logistica = str(row_dict.get("logistica") or row_dict.get("Logistica") or "").strip().upper()
+        raw_sit = str(
+            row_dict.get("situacao")
+            or row_dict.get("SITUACAO")
+            or (sit_cadastral if sit_cadastral in ("CANCELADO", "RETIRADA", "URGENTE") else None)
+            or row_dict.get("Situacao_CSV_Entrega")
+            or sit_cadastral
+            or "NORMAL"
+        ).strip().upper()
 
-        situacao = str(row_dict.get("situacao") or row_dict.get("Situacao") or row_dict.get("Logistica") or "").strip().upper()
-        if situacao == "CANCELADO":
+        if raw_sit == "CANCELADO" or sit_cadastral == "CANCELADO" or logistica == "CANCELADO":
             return False, None, {
                 "pedido": str(raw_id),
                 "regra": "pedido_cancelado",
                 "motivo": "Pedido cancelado expurgado do planejamento logístico."
+            }
+
+        if raw_sit == "RETIRADA":
+            return False, None, {
+                "pedido": str(raw_id),
+                "regra": "retirada_balcao",
+                "motivo": "Pedido com retirada direta no balcão da loja não compõe carga de transporte rodoviário."
             }
 
         city_raw = str(row_dict.get("cidade") or row_dict.get("city") or row_dict.get("Cidade") or "").strip().upper()
@@ -333,7 +342,7 @@ class DailyDispatchPipeline:
             is_urgent = urgente_field
         elif urgente_field:
             is_urgent = str(urgente_field).strip().lower() in ("true", "1", "sim", "urgente")
-        if not is_urgent and sit_entrega == "URGENTE":
+        if not is_urgent and raw_sit == "URGENTE":
             is_urgent = True
 
         # Endereço
@@ -409,6 +418,7 @@ class DailyDispatchPipeline:
             "seller": str(seller) if seller else None,
             "city_name": city_raw,
             "axis_id": axis_id,
+            "situacao": raw_sit,
             "total_value": clean_val,
             "value": clean_val,
             "total_weight_kg": round(total_w, 2),
@@ -451,6 +461,7 @@ class DailyDispatchPipeline:
                     "cliente": it.get("customer"),
                     "cidade": it.get("city_name"),
                     "endereco": it.get("address_line") or it.get("formatted_address"),
+                    "situacao": it.get("situacao", "NORMAL"),
                     "peso_total_kg": it.get("total_weight_kg", it.get("weight_kg", 0.0)),
                     "volume_total_m3": it.get("total_volume_m3", it.get("volume_m3", 0.0)),
                     "valor_total": it.get("total_value", it.get("value", 0.0)),
@@ -510,6 +521,7 @@ class DailyDispatchPipeline:
                     "cidade": it.get("city_name"),
                     "endereco_completo": it.get("formatted_address") or it.get("address_line") or it.get("city_name"),
                     "posicao_na_carroceria": it.get("posicao_na_carroceria", "Carroceria Aberta"),
+                    "situacao": it.get("situacao", "NORMAL"),
                     "valor_pedido": val,
                     "status_pagamento": "A RECEBER" if is_collect else "QUITADO",
                     "valor_a_receber": val if is_collect else 0.0,

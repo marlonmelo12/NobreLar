@@ -27,29 +27,35 @@ class CleaningService:
         raw_id = str(order_dict.get("Pedido", order_dict.get("id", "SEM_ID")))
 
         # 1. Regra de Balcão (Retirada direta pelo cliente na loja)
-        sit_entrega = str(order_dict.get("Situacao_CSV_Entrega", "")).strip().upper()
-        if sit_entrega == "RETIRADA":
+        sit_val = str(
+            order_dict.get("situacao")
+            or order_dict.get("SITUACAO")
+            or order_dict.get("Situacao_CSV_Entrega")
+            or ""
+        ).strip().upper()
+
+        if sit_val == "RETIRADA":
             logs.append(CleaningLog(
                 record_reference=raw_id,
                 rule_applied="retirada_balcao",
                 action="REMOVIDO",
-                field="Situacao_CSV_Entrega",
-                original_value=sit_entrega,
+                field="situacao",
+                original_value=sit_val,
                 corrected_value=None,
                 reason="Regra de negócio: pedidos com retirada no balcão não compõem carga de transporte rodoviário.",
             ))
             return False, logs
 
         # 2. Regra de Cancelamento
-        logistica = str(order_dict.get("Logistica", "")).strip().upper()
-        situacao = str(order_dict.get("Situacao", "")).strip().upper()
-        if logistica == "CANCELADO" or situacao == "CANCELADO":
+        logistica = str(order_dict.get("Logistica", order_dict.get("logistica", ""))).strip().upper()
+        situacao_cadastral = str(order_dict.get("Situacao", "")).strip().upper()
+        if logistica == "CANCELADO" or situacao_cadastral == "CANCELADO" or sit_val == "CANCELADO":
             logs.append(CleaningLog(
                 record_reference=raw_id,
                 rule_applied="pedido_cancelado",
                 action="REMOVIDO",
-                field="Logistica/Situacao",
-                original_value=f"Logistica={logistica}|Situacao={situacao}",
+                field="situacao",
+                original_value=f"Logistica={logistica}|Situacao={sit_val or situacao_cadastral}",
                 corrected_value=None,
                 reason="Regra de negócio: pedidos cancelados são expurgados do planejamento de carregamento.",
             ))

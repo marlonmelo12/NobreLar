@@ -78,15 +78,23 @@ def test_vehicle_territorial_validation():
 
 def test_cleaning_service_discard_rules():
     """Valida as regras canônicas de descarte e geração de CleaningLog."""
-    # Balcão
+    # Balcão (suporte legado CSV e novo campo situacao)
     ok, logs = CleaningService.evaluate_order({"Pedido": "L01", "Situacao_CSV_Entrega": "RETIRADA"})
     assert ok is False
     assert logs[0].rule_applied == "retirada_balcao"
 
-    # Cancelado
+    ok_b, logs_b = CleaningService.evaluate_order({"Pedido": "L01_B", "situacao": "RETIRADA"})
+    assert ok_b is False
+    assert logs_b[0].rule_applied == "retirada_balcao"
+
+    # Cancelado (suporte legado CSV e novo campo situacao)
     ok, logs = CleaningService.evaluate_order({"Pedido": "L02", "Logistica": "CANCELADO"})
     assert ok is False
     assert logs[0].rule_applied == "pedido_cancelado"
+
+    ok_c, logs_c = CleaningService.evaluate_order({"Pedido": "L02_B", "situacao": "CANCELADO"})
+    assert ok_c is False
+    assert logs_c[0].rule_applied == "pedido_cancelado"
 
     # Entrega urbana em Crateús no fluxo regional
     ok, logs = CleaningService.evaluate_order({"Pedido": "L03", "Cidade": "CRATEUS"}, scope_regional=True)

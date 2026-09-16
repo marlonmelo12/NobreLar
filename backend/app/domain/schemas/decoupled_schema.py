@@ -4,8 +4,23 @@ Implementa a estrutura canônica dos pedidos, suporte a carroceria aberta (sem m
 e contratos JSON com itens aninhados para consumo direto pelo Frontend.
 """
 
+from enum import Enum
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
+
+
+# ---------------------------------------------------------------------------
+# 0. Enums de Negócio do Domínio Nobre Lar
+# ---------------------------------------------------------------------------
+class SituacaoPedidoEnum(str, Enum):
+    """Situação operacional canônica extraída do CSV/ERP da Nobre Lar."""
+    NORMAL = "NORMAL"
+    URGENTE = "URGENTE"
+    RETIRADA = "RETIRADA"
+    CARRO_HORARIO = "CARRO HORARIO"
+    PROGRAMADO = "PROGRAMADO"
+    TOPIQUE = "TOPIQUE"
+    CANCELADO = "CANCELADO"
 
 
 # ---------------------------------------------------------------------------
@@ -33,8 +48,10 @@ class DecoupledOrderInput(BaseModel):
     endereco: Optional[str] = Field(None, alias="address", description="Endereço completo de entrega")
     valor: Optional[float] = Field(0.0, alias="total_pedido", description="Valor líquido total do pedido")
     urgente: bool = Field(False, alias="is_urgent", description="Flag de prioridade máxima")
-    situacao: Optional[str] = Field("Faturado", description="Situação cadastral: Faturado, Cancelado, etc.")
-    situacao_entrega: Optional[str] = Field("ENTREGUE", description="Tipo de entrega: ENTREGUE ou RETIRADA")
+    situacao: str = Field(
+        SituacaoPedidoEnum.NORMAL.value,
+        description="Situação operacional canônica: NORMAL, URGENTE, RETIRADA, CARRO HORARIO, PROGRAMADO, TOPIQUE, CANCELADO"
+    )
     pagamento_entrega: Optional[str] = Field(None, description="'A RECEBER', 'SIM' ou None se já quitado")
     itens: List[DecoupledItemInput] = Field(default_factory=list, description="Lista de itens do pedido")
 
@@ -75,6 +92,7 @@ class TruckLoadOrderItem(BaseModel):
     cliente: Optional[str] = None
     cidade: str
     endereco: Optional[str] = None
+    situacao: str = Field("NORMAL", description="Situação operacional: NORMAL, URGENTE, CARRO HORARIO, etc.")
     peso_total_kg: float
     volume_total_m3: float
     valor_total: float
@@ -120,6 +138,7 @@ class DeliveryRouteStopItem(BaseModel):
     cidade: str
     endereco_completo: str
     posicao_na_carroceria: str
+    situacao: str = Field("NORMAL", description="Situação operacional: NORMAL, URGENTE, CARRO HORARIO, etc.")
     valor_pedido: float
     status_pagamento: str  # "QUITADO" ou "A RECEBER"
     valor_a_receber: float

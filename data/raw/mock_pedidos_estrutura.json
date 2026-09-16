@@ -8,8 +8,7 @@
     "endereco": "Rua Chaves Martins, 590, Próx. Caça e Pesca, Altamira, CEP 63704-165, Crateús - CE",
     "valor": 810.00,
     "urgente": false,
-    "situacao": "Faturado",
-    "situacao_entrega": "ENTREGUE",
+    "situacao": "NORMAL",
     "pagamento_entrega": null,
     "itens": [
       {
@@ -47,8 +46,7 @@
     "endereco": "Rua Coronel Zezé, 1020, São Vicente, CEP 63700-000, Crateús - CE",
     "valor": 1250.00,
     "urgente": true,
-    "situacao": "Faturado",
-    "situacao_entrega": "ENTREGUE",
+    "situacao": "URGENTE",
     "pagamento_entrega": null,
     "itens": [
       {
@@ -78,8 +76,7 @@
     "endereco": "Rua Franklin José Vieira, 100, Centro, CEP 62290-000, Ipaporanga - CE",
     "valor": 4800.00,
     "urgente": true,
-    "situacao": "Faturado",
-    "situacao_entrega": "ENTREGUE",
+    "situacao": "URGENTE",
     "pagamento_entrega": null,
     "itens": [
       {
@@ -117,8 +114,7 @@
     "endereco": "Av. 22 de Setembro, 240, Centro, Ipaporanga - CE",
     "valor": 1500.00,
     "urgente": true,
-    "situacao": "Faturado",
-    "situacao_entrega": "ENTREGUE",
+    "situacao": "URGENTE",
     "pagamento_entrega": "A RECEBER",
     "itens": [
       {
@@ -140,8 +136,7 @@
     "endereco": "Rua Epitácio Pinho, 55, Centro, Poranga - CE",
     "valor": 3600.00,
     "urgente": false,
-    "situacao": "Faturado",
-    "situacao_entrega": "ENTREGUE",
+    "situacao": "NORMAL",
     "pagamento_entrega": null,
     "itens": [
       {
@@ -179,8 +174,7 @@
     "endereco": "Rua do Comércio, 310, Poranga - CE",
     "valor": 2400.00,
     "urgente": false,
-    "situacao": "Faturado",
-    "situacao_entrega": "ENTREGUE",
+    "situacao": "CARRO HORARIO",
     "pagamento_entrega": null,
     "itens": [
       {
@@ -210,8 +204,7 @@
     "endereco": "Rua Dr. Rufino, 105, Centro, Novo Oriente - CE",
     "valor": 2900.00,
     "urgente": false,
-    "situacao": "Faturado",
-    "situacao_entrega": "ENTREGUE",
+    "situacao": "PROGRAMADO",
     "pagamento_entrega": null,
     "itens": [
       {
@@ -249,8 +242,7 @@
     "endereco": "Rua Gonçalves Dias, 40, Centro, Quiterianópolis - CE",
     "valor": 2100.00,
     "urgente": false,
-    "situacao": "Faturado",
-    "situacao_entrega": "ENTREGUE",
+    "situacao": "NORMAL",
     "pagamento_entrega": "A RECEBER",
     "itens": [
       {
@@ -280,8 +272,7 @@
     "endereco": "Retirada no Balcão da Loja Nobre Lar, Centro",
     "valor": 450.00,
     "urgente": false,
-    "situacao": "Faturado",
-    "situacao_entrega": "RETIRADA",
+    "situacao": "RETIRADA",
     "pagamento_entrega": null,
     "itens": [
       {
@@ -303,8 +294,7 @@
     "endereco": "Rua Frei Vidal da Penha, 200, Crateús - CE",
     "valor": 1200.00,
     "urgente": false,
-    "situacao": "Cancelado",
-    "situacao_entrega": "ENTREGUE",
+    "situacao": "CANCELADO",
     "pagamento_entrega": null,
     "itens": [
       {
