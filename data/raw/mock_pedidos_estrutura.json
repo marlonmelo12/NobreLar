@@ -1,0 +1,320 @@
+[
+  {
+    "id": "L12608361",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "CLIENTE 1 (PEDIDO OFICIAL NOBRE LAR)",
+    "cidade": "CRATEUS",
+    "endereco": "Rua Chaves Martins, 590, Próx. Caça e Pesca, Altamira, CEP 63704-165, Crateús - CE",
+    "valor": 810.00,
+    "urgente": false,
+    "situacao": "Faturado",
+    "situacao_entrega": "ENTREGUE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "23717",
+        "descricao": "PISO POINTER PIETRA DI BASALTO PLATINA 60 X 60 EXT RES 100382",
+        "quantidade": 14.60,
+        "unidade": "MT",
+        "preco_unitario": 43.90,
+        "subtotal": 640.69
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 7.0,
+        "unidade": "UN",
+        "preco_unitario": 22.90,
+        "subtotal": 154.12
+      },
+      {
+        "codigo": "15624",
+        "descricao": "REJ QUARTZOLIT CZ PLATINA - 1KG",
+        "quantidade": 2.0,
+        "unidade": "UN",
+        "preco_unitario": 7.90,
+        "subtotal": 15.19
+      }
+    ]
+  },
+  {
+    "id": "L12608362",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "CONSTRUTORA SERRA AZUL",
+    "cidade": "CRATEUS",
+    "endereco": "Rua Coronel Zezé, 1020, São Vicente, CEP 63700-000, Crateús - CE",
+    "valor": 1250.00,
+    "urgente": true,
+    "situacao": "Faturado",
+    "situacao_entrega": "ENTREGUE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 25.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 950.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 12.0,
+        "unidade": "UN",
+        "preco_unitario": 25.00,
+        "subtotal": 300.00
+      }
+    ]
+  },
+  {
+    "id": "L12608401",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "AGROPECUARIA IPAPORANGA",
+    "cidade": "IPAPORANGA",
+    "endereco": "Rua Franklin José Vieira, 100, Centro, CEP 62290-000, Ipaporanga - CE",
+    "valor": 4800.00,
+    "urgente": true,
+    "situacao": "Faturado",
+    "situacao_entrega": "ENTREGUE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 40.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1520.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 20.0,
+        "unidade": "UN",
+        "preco_unitario": 22.90,
+        "subtotal": 458.00
+      },
+      {
+        "codigo": "21243",
+        "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 'A'",
+        "quantidade": 60.0,
+        "unidade": "MT",
+        "preco_unitario": 47.03,
+        "subtotal": 2822.00
+      }
+    ]
+  },
+  {
+    "id": "L12608402",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "FERRAGISTA E HIDRAULICA DO NORTE",
+    "cidade": "IPAPORANGA",
+    "endereco": "Av. 22 de Setembro, 240, Centro, Ipaporanga - CE",
+    "valor": 1500.00,
+    "urgente": true,
+    "situacao": "Faturado",
+    "situacao_entrega": "ENTREGUE",
+    "pagamento_entrega": "A RECEBER",
+    "itens": [
+      {
+        "codigo": "10200",
+        "descricao": "TUBO ESGOTO 100MM 6M TIGRE",
+        "quantidade": 15.0,
+        "unidade": "UN",
+        "preco_unitario": 100.00,
+        "subtotal": 1500.00
+      }
+    ]
+  },
+  {
+    "id": "L12608403",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "DEPOSITO SÃO PEDRO",
+    "cidade": "PORANGA",
+    "endereco": "Rua Epitácio Pinho, 55, Centro, Poranga - CE",
+    "valor": 3600.00,
+    "urgente": false,
+    "situacao": "Faturado",
+    "situacao_entrega": "ENTREGUE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 60.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 2280.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 40.0,
+        "unidade": "UN",
+        "preco_unitario": 23.00,
+        "subtotal": 920.00
+      },
+      {
+        "codigo": "15624",
+        "descricao": "REJ QUARTZOLIT CZ PLATINA - 1KG",
+        "quantidade": 50.0,
+        "unidade": "UN",
+        "preco_unitario": 8.00,
+        "subtotal": 400.00
+      }
+    ]
+  },
+  {
+    "id": "L12608404",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "COMERCIAL MATERIAIS PORANGA",
+    "cidade": "PORANGA",
+    "endereco": "Rua do Comércio, 310, Poranga - CE",
+    "valor": 2400.00,
+    "urgente": false,
+    "situacao": "Faturado",
+    "situacao_entrega": "ENTREGUE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21243",
+        "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 'A'",
+        "quantidade": 50.6,
+        "unidade": "MT",
+        "preco_unitario": 40.00,
+        "subtotal": 2024.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 15.0,
+        "unidade": "UN",
+        "preco_unitario": 25.06,
+        "subtotal": 376.00
+      }
+    ]
+  },
+  {
+    "id": "L12608501",
+    "data": "03/08/2026",
+    "vendedor": "CAMILA",
+    "cliente": "POSTO E POUSADA NOVO ORIENTE",
+    "cidade": "NOVO ORIENTE",
+    "endereco": "Rua Dr. Rufino, 105, Centro, Novo Oriente - CE",
+    "valor": 2900.00,
+    "urgente": false,
+    "situacao": "Faturado",
+    "situacao_entrega": "ENTREGUE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 45.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1710.00
+      },
+      {
+        "codigo": "14900",
+        "descricao": "ARGAMASSA VARANDAS E QUINTAIS 15KG QUARTZOLIT",
+        "quantidade": 40.0,
+        "unidade": "UN",
+        "preco_unitario": 23.00,
+        "subtotal": 920.00
+      },
+      {
+        "codigo": "15624",
+        "descricao": "REJ QUARTZOLIT CZ PLATINA - 1KG",
+        "quantidade": 34.0,
+        "unidade": "UN",
+        "preco_unitario": 7.94,
+        "subtotal": 270.00
+      }
+    ]
+  },
+  {
+    "id": "L12608502",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "CONSTRUÇÕES QUITERIANÓPOLIS",
+    "cidade": "QUITERIANOPOLIS",
+    "endereco": "Rua Gonçalves Dias, 40, Centro, Quiterianópolis - CE",
+    "valor": 2100.00,
+    "urgente": false,
+    "situacao": "Faturado",
+    "situacao_entrega": "ENTREGUE",
+    "pagamento_entrega": "A RECEBER",
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 30.0,
+        "unidade": "UN",
+        "preco_unitario": 38.00,
+        "subtotal": 1140.00
+      },
+      {
+        "codigo": "21243",
+        "descricao": "PISO CERBRAS IPANEMA BEGE 46 X 46 'A'",
+        "quantidade": 24.0,
+        "unidade": "MT",
+        "preco_unitario": 40.00,
+        "subtotal": 960.00
+      }
+    ]
+  },
+  {
+    "id": "L12608998",
+    "data": "03/08/2026",
+    "vendedor": "LEONARDO",
+    "cliente": "CLIENTE BALCÃO RETIRADA",
+    "cidade": "CRATEUS",
+    "endereco": "Retirada no Balcão da Loja Nobre Lar, Centro",
+    "valor": 450.00,
+    "urgente": false,
+    "situacao": "Faturado",
+    "situacao_entrega": "RETIRADA",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 10.0,
+        "unidade": "UN",
+        "preco_unitario": 45.00,
+        "subtotal": 450.00
+      }
+    ]
+  },
+  {
+    "id": "L12608999",
+    "data": "03/08/2026",
+    "vendedor": "MASCILON",
+    "cliente": "PEDIDO CANCELADO PELO CLIENTE",
+    "cidade": "CRATEUS",
+    "endereco": "Rua Frei Vidal da Penha, 200, Crateús - CE",
+    "valor": 1200.00,
+    "urgente": false,
+    "situacao": "Cancelado",
+    "situacao_entrega": "ENTREGUE",
+    "pagamento_entrega": null,
+    "itens": [
+      {
+        "codigo": "21503",
+        "descricao": "CIMENTO POTY TODAS OBRAS 50KG",
+        "quantidade": 25.0,
+        "unidade": "UN",
+        "preco_unitario": 48.00,
+        "subtotal": 1200.00
+      }
+    ]
+  }
+]

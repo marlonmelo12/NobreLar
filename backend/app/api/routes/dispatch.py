@@ -1,9 +1,8 @@
-"""Rotas da API para o pipeline de faturamento diário e expedição multi-viagens."""
-
+import json
 import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union, Tuple
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Response
 from sqlalchemy.orm import Session
 import structlog
@@ -12,6 +11,13 @@ from app.core.config import settings
 from app.infrastructure.database.session import get_db
 from app.services.dispatch_pipeline import DailyDispatchPipeline
 from app.services.report_service import ReportService
+from app.domain.schemas.decoupled_schema import (
+    DecoupledBatchRequest,
+    DecoupledOrderInput,
+    TruckLoadResponse,
+    DeliveryRouteResponse,
+    DecoupledDispatchResponse
+)
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/dispatch", tags=["Expedição Diária & Multi-Viagens"])
@@ -144,4 +150,148 @@ def generate_trip_delivery_route_pdf(trip_data: Dict[str, Any]):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erro na geração do PDF do roteiro TSP: {str(e)}"
         )
+
+
+# ===========================================================================
+# ENDPOINTS DESACOPLADOS: JSON INGESTION & DRILL-DOWN PARA O FRONTEND
+# ===========================================================================
+
+@router.get(
+    "/mock-orders",
+    summary="Retorna a lista de pedidos mock estruturados baseados no pedido oficial da Nobre Lar",
+    response_model=List[Dict[str, Any]]
+)
+def get_mock_orders_json():
+    """Retorna a coleção mock JSON estruturada baseada no espelho do pedido L12608361 da Nobre Lar."""
+    mock_candidates = [
+        settings.DATA_RAW_DIR / "mock_pedidos_estrutura.json",
+        Path("/data/raw/mock_pedidos_estrutura.json"),
+        Path("./data/raw/mock_pedidos_estrutura.json"),
+        settings.BASE_DIR.parent / "data" / "raw" / "mock_pedidos_estrutura.json",
+    ]
+    for p in mock_candidates:
+        if p.exists():
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception as e:
+                logger.error(f"Erro ao ler mock de pedidos: {e}")
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Arquivo mock_pedidos_estrutura.json não encontrado."
+    )
+
+
+def _extract_batch_orders_and_params(
+    payload: Union[DecoupledBatchRequest, List[DecoupledOrderInput], List[Dict[str, Any]], Dict[str, Any]]
+) -> Tuple[List[Dict[str, Any]], str, float]:
+    """Extrai a lista de pedidos brutos e parâmetros a partir de múltiplos formatos JSON suportados."""
+    profile_name = "Equilibrado"
+    time_limit = 20.0
+
+    if isinstance(payload, DecoupledBatchRequest):
+        orders_raw = [o.model_dump(by_alias=True) for o in payload.pedidos]
+        profile_name = payload.perfil_otimizacao or profile_name
+        time_limit = payload.tempo_limite_segundos or time_limit
+    elif isinstance(payload, dict):
+        p_list = payload.get("pedidos") or payload.get("orders") or []
+        orders_raw = []
+        for o in p_list:
+            if hasattr(o, "model_dump"):
+                orders_raw.append(o.model_dump(by_alias=True))
+            elif isinstance(o, dict):
+                orders_raw.append(o)
+        profile_name = payload.get("perfil_otimizacao", profile_name)
+        time_limit = float(payload.get("tempo_limite_segundos", time_limit))
+    elif isinstance(payload, list):
+        orders_raw = []
+        for o in payload:
+            if hasattr(o, "model_dump"):
+                orders_raw.append(o.model_dump(by_alias=True))
+            elif isinstance(o, dict):
+                orders_raw.append(o)
+    else:
+        orders_raw = []
+
+    return orders_raw, profile_name, time_limit
+
+
+@router.post(
+    "/process-orders",
+    summary="Processamento desacoplado completo via JSON (retorna ambas as visões com drill-down)",
+    response_model=DecoupledDispatchResponse
+)
+def process_orders_decoupled(
+    payload: Union[DecoupledBatchRequest, List[DecoupledOrderInput]],
+    db: Session = Depends(get_db)
+):
+    """Processa o lote de pedidos JSON em memória e retorna tanto a visão de Cargas na Carroceria quanto o Roteiro TSP."""
+    orders_raw, profile_name, time_limit = _extract_batch_orders_and_params(payload)
+    if not orders_raw:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nenhum pedido fornecido no lote.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    result = pipeline.process_orders_json(
+        orders=orders_raw,
+        profile_name=profile_name,
+        time_limit_seconds=time_limit
+    )
+    return result
+
+
+@router.post(
+    "/process-orders/truck-load",
+    summary="Retorna os pedidos organizados para Carga no Caminhão (Carroceria Aberta) com drill-down de itens",
+    response_model=TruckLoadResponse
+)
+def process_orders_truck_load(
+    payload: Union[DecoupledBatchRequest, List[DecoupledOrderInput]],
+    db: Session = Depends(get_db)
+):
+    """Retorna especificamente a visão de montagem de carga na carroceria aberta para o Frontend da expedição."""
+    orders_raw, profile_name, time_limit = _extract_batch_orders_and_params(payload)
+    if not orders_raw:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nenhum pedido fornecido no lote.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    raw_res = pipeline.process_orders_collection(
+        raw_orders=orders_raw,
+        profile_name=profile_name,
+        time_limit_seconds=time_limit
+    )
+    trips_formatted = pipeline.format_truck_load_response(raw_res["trips"])
+    return {
+        "status": "SUCESSO",
+        "total_viagens": len(trips_formatted),
+        "viagens": trips_formatted
+    }
+
+
+@router.post(
+    "/process-orders/delivery-route",
+    summary="Retorna a Ordem de Entrega (Roteiro TSP) com endereços, recebíveis e drill-down de itens",
+    response_model=DeliveryRouteResponse
+)
+def process_orders_delivery_route(
+    payload: Union[DecoupledBatchRequest, List[DecoupledOrderInput]],
+    db: Session = Depends(get_db)
+):
+    """Retorna especificamente a visão cronológica de entregas TSP com dados do cliente e produtos por parada."""
+    orders_raw, profile_name, time_limit = _extract_batch_orders_and_params(payload)
+    if not orders_raw:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nenhum pedido fornecido no lote.")
+
+    pipeline = DailyDispatchPipeline(db=db)
+    raw_res = pipeline.process_orders_collection(
+        raw_orders=orders_raw,
+        profile_name=profile_name,
+        time_limit_seconds=time_limit
+    )
+    trips_formatted = pipeline.format_delivery_route_response(raw_res["trips"])
+    return {
+        "status": "SUCESSO",
+        "total_viagens": len(trips_formatted),
+        "viagens": trips_formatted
+    }
+
 

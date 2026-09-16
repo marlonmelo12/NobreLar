@@ -1,16 +1,17 @@
 """Pipeline diário de expedição com particionamento por eixos e alocação multi-viagens.
 
 Implementa a orquestração ponta a ponta de um dia de faturamento:
-1. Ingestão e higienização (descarte auditado de balcão/cancelados em CleaningLog).
-2. Detecção e priorização compulsória de pedidos urgentes (SLA).
-3. Classificação territorial em eixos rodoviários (Eixo 0 Urbano a Eixo 5 Inhamuns).
-4. Alocação sequencial de frota com geração automática de viagens posteriores
-   (Viagem 1, Viagem 2, etc.) quando o volume/peso do eixo supera a capacidade do veículo.
-5. Roteirização TSP e geração da sequência LIFO de doca para cada viagem.
+1. Ingestão desacoplada (JSON estruturado ou CSV tradicional).
+2. Higienização e descarte auditado de balcão/cancelados em CleaningLog.
+3. Cubagem técnica e extração detalhada de itens com detecção de 6m.
+4. Detecção e priorização compulsória de pedidos urgentes (SLA).
+5. Particionamento territorial em eixos rodoviários (Eixo 0 Urbano a Eixo 5 Inhamuns).
+6. Alocação sequencial de frota com geração de viagens sucessivas (ondas) na carroceria aberta.
+7. Roteirização TSP e sequenciamento físico na carroceria aberta com drill-down de itens.
 """
 
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Tuple
 import pandas as pd
 from sqlalchemy.orm import Session
 import structlog
@@ -50,10 +51,7 @@ class DailyDispatchPipeline:
         profile_name: str = "Equilibrado",
         time_limit_seconds: float = 20.0
     ) -> Dict[str, Any]:
-        """Executa o pipeline completo de faturamento diário com suporte a múltiplas viagens."""
-        logger.info("Iniciando processamento do pipeline diário de faturamento...")
-
-        # 1. Carregamento do DataFrame
+        """Executa o pipeline completo de faturamento diário a partir de CSV ou DataFrame."""
         if isinstance(csv_file_path_or_df, (str, Path)):
             p = Path(csv_file_path_or_df)
             if not p.exists():
@@ -69,133 +67,90 @@ class DailyDispatchPipeline:
         else:
             df = csv_file_path_or_df
 
-        total_read = len(df)
+        raw_orders: List[Dict[str, Any]] = []
+        for _, row in df.iterrows():
+            row_dict = {k.strip(): v for k, v in row.to_dict().items() if pd.notna(v)}
+            raw_orders.append(row_dict)
+
+        return self.process_orders_collection(raw_orders, profile_name, time_limit_seconds)
+
+    def process_orders_json(
+        self,
+        orders: List[Dict[str, Any]],
+        profile_name: str = "Equilibrado",
+        time_limit_seconds: float = 20.0
+    ) -> Dict[str, Any]:
+        """Processa pedidos recebidos diretamente via JSON desacoplado e retorna ambas as visões com drill-down."""
+        raw_result = self.process_orders_collection(orders, profile_name, time_limit_seconds)
+
+        # Formata especificamente para os contratos desacoplados de saída
+        cargas = self.format_truck_load_response(raw_result["trips"])
+        roteiros = self.format_delivery_route_response(raw_result["trips"])
+
+        return {
+            "status": raw_result["status"],
+            "resumo": raw_result["summary"],
+            "cargas_caminhao": cargas,
+            "roteiros_entrega": roteiros,
+            "descartes_limpeza": raw_result["discarded_cleaning_logs"]
+        }
+
+    def process_orders_collection(
+        self,
+        raw_orders: List[Dict[str, Any]],
+        profile_name: str = "Equilibrado",
+        time_limit_seconds: float = 20.0
+    ) -> Dict[str, Any]:
+        """Processa uma coleção de pedidos brutos com descarte, cubagem, multi-viagens e roteirização."""
+        total_read = len(raw_orders)
         discarded_logs: List[Dict[str, Any]] = []
         valid_orders: List[Dict[str, Any]] = []
 
-        # 2. Filtragem, Higienização e Tratamento dos Pedidos
-        for _, row in df.iterrows():
-            row_dict = {k.strip(): v for k, v in row.to_dict().items() if pd.notna(v)}
-
-            # Avaliação de descarte com scope_regional=False para permitir Crateús urbano no Eixo 0
-            is_eligible, logs = CleaningService.evaluate_order(row_dict, scope_regional=False)
-            if not is_eligible:
-                for log in logs:
-                    if self.db:
-                        self.db.add(log)
-                    discarded_logs.append({
-                        "pedido": log.record_reference,
-                        "regra": log.rule_applied,
-                        "motivo": log.reason
-                    })
+        for row_dict in raw_orders:
+            eligible, order_data, disc_log = self._normalize_single_order(row_dict)
+            if not eligible:
+                if disc_log:
+                    discarded_logs.append(disc_log)
                 continue
-
-            raw_id = row_dict.get("Pedido", row_dict.get("ID", row_dict.get("PEDIDO", "")))
-            clean_id = sanitize_order_id(raw_id)
-            if clean_id == "INVALIDO":
-                continue
-
-            clean_date = sanitize_brazilian_date(row_dict.get("Data", row_dict.get("DATA", "")))
-            clean_val = clean_currency(row_dict.get("Valor_Pedido", row_dict.get("VALOR DO PEDIDO", 0.0)))
-            city_raw = str(row_dict.get("Cidade", row_dict.get("CIDADE", ""))).strip().upper()
-
-            meta_axis = CITY_TO_AXIS_MAP.get(city_raw)
-            if not meta_axis:
-                discarded_logs.append({
-                    "pedido": clean_id,
-                    "regra": "cidade_nao_mapeada",
-                    "motivo": f"Localidade '{city_raw}' não consta no mapeamento regional canônico."
-                })
-                continue
-
-            axis_id = meta_axis["axis_id"]
-
-            # Flag de urgência compulsória
-            sit_entrega = str(row_dict.get("Situacao_CSV_Entrega", row_dict.get("Prioridade", ""))).strip().upper()
-            is_urgent = (sit_entrega == "URGENTE") or str(row_dict.get("Urgente", "")).strip().lower() in ("true", "1", "sim")
-
-            # Endereço
-            raw_addr = row_dict.get("Endereco", row_dict.get("Endereço", row_dict.get("Logradouro", "")))
-            parsed_addr = parse_address_components(raw_addr)
-
-            # Itens e Cubagem
-            itens_str = row_dict.get("Itens_Resumo", row_dict.get("ITENS", ""))
-            parsed_items = parse_order_items(itens_str)
-            cubing_res = self.cubagem.compute_order_cubing(parsed_items)
-
-            # Pagamento na entrega
-            pgt_entrega = str(row_dict.get("PGT ENTREGA?", row_dict.get("PAGAMENTO_ENTREGA", ""))).strip().upper()
-            is_collect = "RECEBER" in pgt_entrega or "SIM" in pgt_entrega
-
-            order_data = {
-                "id": clean_id,
-                "external_id": str(raw_id),
-                "date": clean_date,
-                "city_name": city_raw,
-                "axis_id": axis_id,
-                "total_value": clean_val,
-                "value": clean_val,
-                "total_weight_kg": cubing_res["total_weight_kg"],
-                "total_volume_m3": cubing_res["total_volume_m3"],
-                "weight_kg": cubing_res["total_weight_kg"],
-                "volume_m3": cubing_res["total_volume_m3"],
-                "has_long_items": cubing_res["has_long_items"],
-                "is_mandatory": is_urgent,
-                "address_line": parsed_addr["address_line"],
-                "address_number": parsed_addr["address_number"],
-                "neighborhood": parsed_addr["neighborhood"],
-                "postal_code": parsed_addr["postal_code"],
-                "payment_on_delivery": "A RECEBER" if is_collect else None,
-                "sale_frequency": 1,
-            }
-
-            valid_orders.append(order_data)
+            if order_data:
+                valid_orders.append(order_data)
 
         if self.db:
             self.db.commit()
 
-        # 3. Desdobramento de pedidos que excedem a capacidade máxima do maior caminhão (4.800 kg)
+        # Desdobramento de pedidos que excedem a capacidade máxima do caminhão grande (4.800 kg)
         valid_orders = split_overweight_orders(valid_orders, max_capacity_kg=4800.0)
 
-        # 4. Agrupamento de pedidos por Eixo Rodoviário
+        # Agrupamento de pedidos por Eixo Rodoviário
         orders_by_axis: Dict[str, List[Dict[str, Any]]] = {}
         for ord_item in valid_orders:
             ax = ord_item["axis_id"]
             orders_by_axis.setdefault(ax, []).append(ord_item)
 
-        # 5. Obtenção da Frota Atual (2 Caminhões Grandes e 2 Caminhões Médios)
-        available_vehicles = self._get_fleet_vehicles()
-        large_trucks = [v for v in available_vehicles if not v["restricted_to_crateus"]]
-        medium_trucks = [v for v in available_vehicles if v["restricted_to_crateus"]]
-
+        fleet_vehicles = self._get_fleet_vehicles()
         all_trips: List[Dict[str, Any]] = []
         unallocated_orders: List[Dict[str, Any]] = []
 
-        # 6. Alocação e Escalonamento de Viagens por Eixo (Multi-Trip)
-        # Ordenamos os eixos: primeiro intermunicipais pesados, depois urbano
-        for axis_id, axis_orders in sorted(orders_by_axis.items(), key=lambda x: (x[0] == "eixo-0-crateus-urbano", x[0])):
+        for axis_id, axis_orders in orders_by_axis.items():
             pending_pool = list(axis_orders)
             trip_idx = 1
 
             while pending_pool:
-                # Determina o veículo adequado para a viagem
                 assigned_vehicle = self._select_vehicle_for_trip(
                     axis_id=axis_id,
-                    pending_orders=pending_pool,
-                    large_trucks=large_trucks,
-                    medium_trucks=medium_trucks,
-                    trip_number=trip_idx
+                    trip_idx=trip_idx,
+                    fleet=fleet_vehicles,
+                    pending_orders=pending_pool
                 )
 
-                # Separa IDs prioritários/urgentes na fila pendente
-                urgent_ids = [o["id"] for o in pending_pool if o.get("is_mandatory")]
+                if not assigned_vehicle:
+                    logger.warning(f"Sem veículo compatível para o eixo {axis_id} na viagem {trip_idx}")
+                    unallocated_orders.extend(pending_pool)
+                    break
 
-                # Se a soma dos pedidos urgentes exceder a capacidade do caminhão,
-                # não passamos todos como mandatory de uma vez (para não tornar o CP-SAT inviável).
-                # Em vez disso, passamos o subset que cabe por ordem de prioridade.
+                urgent_ids = [o["id"] for o in pending_pool if o.get("is_mandatory")]
                 mandatory_for_solver = self._select_feasible_mandatory(urgent_ids, pending_pool, assigned_vehicle)
 
-                # Executa o solver CP-SAT para encontrar a melhor carga
                 solve_res = solve_load_allocation(
                     orders=pending_pool,
                     capacity_kg=assigned_vehicle["capacity_kg"],
@@ -208,7 +163,6 @@ class DailyDispatchPipeline:
 
                 selected_ids = solve_res["selected_order_ids"]
                 if not selected_ids:
-                    # Nenhum pedido pôde ser alocado (ex: incompatibilidade dimensional ou física)
                     logger.warning(
                         f"Nenhum pedido alocado para o eixo {axis_id} na viagem {trip_idx}. "
                         f"Pedidos restantes: {len(pending_pool)}"
@@ -216,10 +170,9 @@ class DailyDispatchPipeline:
                     unallocated_orders.extend(pending_pool)
                     break
 
-                # Recupera os pedidos selecionados
                 allocated_orders = [o for o in pending_pool if o["id"] in selected_ids]
 
-                # Roteirização TSP e Sequenciamento LIFO de Doca
+                # Roteirização TSP
                 depot_lat, depot_lon = DEPOT_COORDINATES["lat"], DEPOT_COORDINATES["lon"]
                 locations = [(depot_lat, depot_lon)]
                 for o in allocated_orders:
@@ -240,16 +193,34 @@ class DailyDispatchPipeline:
                 for o in allocated_orders:
                     deliv_seq = order_id_to_delivery_seq.get(o["id"], 1)
                     loading_seq = total_allocated - deliv_seq + 1
+
+                    # Posicionamento físico na Carroceria Aberta
+                    if loading_seq == 1:
+                        pos_carroceria = "Frente da Carroceria (Fundo do Assoalho)"
+                    elif loading_seq == total_allocated:
+                        pos_carroceria = "Traseira da Carroceria (Acesso Imediato)"
+                    else:
+                        pos_carroceria = f"{loading_seq}º Carregado (Meio da Carroceria)"
+
+                    if deliv_seq == 1:
+                        pos_descarga = "Traseira da Carroceria (Acesso Imediato)"
+                    elif deliv_seq == total_allocated:
+                        pos_descarga = "Frente da Carroceria (Último Descarregamento)"
+                    else:
+                        pos_descarga = f"{deliv_seq}ª Descarga (Meio da Carroceria)"
+
                     routed_items.append({
                         **o,
                         "delivery_order": deliv_seq,
                         "loading_order": loading_seq,
+                        "posicao_carroceria": pos_carroceria,
+                        "posicao_na_carroceria": pos_descarga,
                     })
 
-                # Ordena os itens pela sequência LIFO de doca (1º a carregar = fundo do baú)
+                # Ordena pela sequência física de estivagem na carroceria aberta
                 routed_items.sort(key=lambda x: x["loading_order"])
 
-                # Validação independente de invariantes físicas e territoriais
+                # Validação independente de integridade física e territorial
                 is_valid, validation_errors = IndependentValidator.validate_plan(
                     selected_orders=allocated_orders,
                     capacity_kg=assigned_vehicle["capacity_kg"],
@@ -268,6 +239,10 @@ class DailyDispatchPipeline:
                     "vehicle_id": assigned_vehicle["id"],
                     "vehicle_name": assigned_vehicle["name"],
                     "vehicle_plate": assigned_vehicle["plate"],
+                    "vehicle_capacity_kg": assigned_vehicle["capacity_kg"],
+                    "vehicle_useful_volume_m3": assigned_vehicle["useful_volume_m3"],
+                    "vehicle_allows_long_items": assigned_vehicle["allows_long_items"],
+                    "vehicle_type": "Carroceria Aberta (Grade Baixa)",
                     "total_orders": len(allocated_orders),
                     "total_value": round(sum(o["total_value"] for o in allocated_orders), 2),
                     "total_weight_kg": round(sum(o["total_weight_kg"] for o in allocated_orders), 2),
@@ -285,12 +260,9 @@ class DailyDispatchPipeline:
                 }
 
                 all_trips.append(trip_record)
-
-                # Remove pedidos alocados do pool pendente do eixo
                 pending_pool = [o for o in pending_pool if o["id"] not in selected_ids]
                 trip_idx += 1
 
-        # 7. Resumo Consolidado do Dia de Faturamento
         total_invoiced_value = sum(t["total_value"] for t in all_trips)
         total_allocated_weight = sum(t["total_weight_kg"] for t in all_trips)
         total_allocated_volume = sum(t["total_volume_m3"] for t in all_trips)
@@ -314,6 +286,260 @@ class DailyDispatchPipeline:
             "unallocated_orders": unallocated_orders
         }
 
+    def _normalize_single_order(
+        self,
+        row_dict: Dict[str, Any]
+    ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+        """Higieniza, extrai cubagem e normaliza um único pedido."""
+        raw_id = row_dict.get("id") or row_dict.get("pedido") or row_dict.get("numero_pedido") or row_dict.get("Pedido") or row_dict.get("ID") or "SEM_ID"
+        clean_id = sanitize_order_id(raw_id)
+        if clean_id == "INVALIDO":
+            return False, None, None
+
+        # 1. Regra de Limpeza: Retirada no balcão e cancelados
+        sit_entrega = str(row_dict.get("situacao_entrega") or row_dict.get("Situacao_CSV_Entrega") or "").strip().upper()
+        if sit_entrega == "RETIRADA":
+            return False, None, {
+                "pedido": str(raw_id),
+                "regra": "retirada_balcao",
+                "motivo": "Pedido com retirada direta no balcão da loja não compõe carga de transporte."
+            }
+
+        situacao = str(row_dict.get("situacao") or row_dict.get("Situacao") or row_dict.get("Logistica") or "").strip().upper()
+        if situacao == "CANCELADO":
+            return False, None, {
+                "pedido": str(raw_id),
+                "regra": "pedido_cancelado",
+                "motivo": "Pedido cancelado expurgado do planejamento logístico."
+            }
+
+        city_raw = str(row_dict.get("cidade") or row_dict.get("city") or row_dict.get("Cidade") or "").strip().upper()
+        meta_axis = CITY_TO_AXIS_MAP.get(city_raw)
+        if not meta_axis:
+            return False, None, {
+                "pedido": str(raw_id),
+                "regra": "cidade_nao_mapeada",
+                "motivo": f"Localidade '{city_raw}' não consta no mapeamento regional canônico de Crateús."
+            }
+
+        axis_id = meta_axis["axis_id"]
+        clean_date = sanitize_brazilian_date(str(row_dict.get("data") or row_dict.get("data_emissao") or row_dict.get("Data") or ""))
+        clean_val = clean_currency(row_dict.get("valor") or row_dict.get("total_pedido") or row_dict.get("Valor_Pedido") or 0.0)
+
+        # Flag de urgência
+        urgente_field = row_dict.get("urgente", row_dict.get("is_urgent"))
+        is_urgent = False
+        if isinstance(urgente_field, bool):
+            is_urgent = urgente_field
+        elif urgente_field:
+            is_urgent = str(urgente_field).strip().lower() in ("true", "1", "sim", "urgente")
+        if not is_urgent and sit_entrega == "URGENTE":
+            is_urgent = True
+
+        # Endereço
+        raw_addr = row_dict.get("endereco") or row_dict.get("address") or row_dict.get("Endereco") or ""
+        parsed_addr = parse_address_components(raw_addr)
+
+        # Pagamento na entrega
+        pgt = str(row_dict.get("pagamento_entrega") or row_dict.get("pagamento_na_entrega") or row_dict.get("PGT ENTREGA?") or "").strip().upper()
+        is_collect = "RECEBER" in pgt or "SIM" in pgt
+
+        # Cliente e Vendedor
+        customer = row_dict.get("cliente") or row_dict.get("Cliente")
+        seller = row_dict.get("vendedor") or row_dict.get("Vendedor")
+
+        # 2. Processamento dos Itens e Cubagem Técnica
+        raw_items = row_dict.get("itens") or row_dict.get("items") or row_dict.get("Itens_Resumo") or ""
+        items_computed: List[Dict[str, Any]] = []
+
+        if isinstance(raw_items, list):
+            for it in raw_items:
+                if isinstance(it, dict):
+                    code = str(it.get("codigo") or it.get("product_code") or "00000").strip()
+                    desc = str(it.get("descricao") or it.get("product_desc") or "").strip()
+                    if not desc and it.get("produto"):
+                        p_str = str(it.get("produto"))
+                        parts = p_str.split(" - ", 1)
+                        if len(parts) == 2:
+                            code, desc = parts[0].strip(), parts[1].strip()
+                        else:
+                            desc = p_str
+                    qtd = float(it.get("quantidade", it.get("quantity", 1.0)))
+                    unit = str(it.get("unidade", it.get("unit", "UN"))).strip().upper()
+                    price = float(it.get("preco_unitario", it.get("unit_price", 0.0)))
+                    c_res = self.cubagem.compute_item_cubing(code, desc, qtd, unit)
+                    items_computed.append({
+                        "codigo": code,
+                        "descricao": desc or f"PRODUTO {code}",
+                        "quantidade": qtd,
+                        "unidade": unit,
+                        "preco_unitario": price,
+                        "peso_unitario_kg": c_res["unit_weight_kg"],
+                        "peso_total_kg": c_res["computed_weight_kg"],
+                        "volume_total_m3": c_res["computed_volume_m3"],
+                        "e_item_6m": c_res["has_long_items"],
+                        "cubagem_estimada": c_res["is_estimated"]
+                    })
+        elif isinstance(raw_items, str) and raw_items.strip():
+            parsed = parse_order_items(raw_items)
+            for p in parsed:
+                c_res = self.cubagem.compute_item_cubing(p["product_code"], p["product_desc"], p["quantity"], p["unit"])
+                items_computed.append({
+                    "codigo": p["product_code"],
+                    "descricao": p["product_desc"],
+                    "quantidade": p["quantity"],
+                    "unidade": p["unit"],
+                    "preco_unitario": 0.0,
+                    "peso_unitario_kg": c_res["unit_weight_kg"],
+                    "peso_total_kg": c_res["computed_weight_kg"],
+                    "volume_total_m3": c_res["computed_volume_m3"],
+                    "e_item_6m": c_res["has_long_items"],
+                    "cubagem_estimada": c_res["is_estimated"]
+                })
+
+        total_w = sum(it["peso_total_kg"] for it in items_computed)
+        total_v = sum(it["volume_total_m3"] for it in items_computed)
+        has_long = any(it["e_item_6m"] for it in items_computed)
+
+        order_data = {
+            "id": clean_id,
+            "external_id": str(raw_id),
+            "date": clean_date,
+            "customer": str(customer) if customer else None,
+            "seller": str(seller) if seller else None,
+            "city_name": city_raw,
+            "axis_id": axis_id,
+            "total_value": clean_val,
+            "value": clean_val,
+            "total_weight_kg": round(total_w, 2),
+            "total_volume_m3": round(total_v, 4),
+            "weight_kg": round(total_w, 2),
+            "volume_m3": round(total_v, 4),
+            "has_long_items": has_long,
+            "is_mandatory": is_urgent,
+            "address_line": parsed_addr.get("address_line", raw_addr),
+            "address_number": parsed_addr.get("address_number"),
+            "neighborhood": parsed_addr.get("neighborhood"),
+            "postal_code": parsed_addr.get("postal_code"),
+            "formatted_address": raw_addr,
+            "payment_on_delivery": "A RECEBER" if is_collect else None,
+            "sale_frequency": 1,
+            "items": items_computed,  # DRILL-DOWN PRESERVADO!
+        }
+
+        return True, order_data, None
+
+    def format_truck_load_response(self, trips: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Formata viagens para a visão de Carregamento na Carroceria Aberta com drill-down."""
+        formatted: List[Dict[str, Any]] = []
+        for t in trips:
+            has_long = any(it.get("has_long_items", False) for it in t.get("items", []))
+            alerta = (
+                "Carroceria aberta — Carga com tubos/barras lineares de 6m: fixar com cintas e catracas no assoalho lateral."
+                if has_long else
+                "Carroceria aberta — Distribuir sacarias e pisos sobre o assoalho no eixo traseiro."
+            )
+
+            pedidos_carroceria = []
+            for it in t.get("items", []):
+                pedidos_carroceria.append({
+                    "pedido": it["id"],
+                    "external_id": it.get("external_id", it["id"]),
+                    "ordem_carregamento": it.get("loading_order", 1),
+                    "posicao_carroceria": it.get("posicao_carroceria", "Assoalho da Carroceria"),
+                    "ordem_entrega_prevista": it.get("delivery_order", 1),
+                    "cliente": it.get("customer"),
+                    "cidade": it.get("city_name"),
+                    "endereco": it.get("address_line") or it.get("formatted_address"),
+                    "peso_total_kg": it.get("total_weight_kg", it.get("weight_kg", 0.0)),
+                    "volume_total_m3": it.get("total_volume_m3", it.get("volume_m3", 0.0)),
+                    "valor_total": it.get("total_value", it.get("value", 0.0)),
+                    "urgente": it.get("is_mandatory", False),
+                    "possui_itens_6m": it.get("has_long_items", False),
+                    "pagamento_na_entrega": it.get("payment_on_delivery"),
+                    "itens": it.get("items", [])  # DRILL-DOWN ANINHADO
+                })
+
+            formatted.append({
+                "viagem_id": t["trip_id"],
+                "viagem_numero": t["trip_number"],
+                "titulo": t["trip_title"],
+                "eixo_id": t["axis_id"],
+                "eixo_nome": t["axis_name"],
+                "veiculo": {
+                    "id": t["vehicle_id"],
+                    "nome": t["vehicle_name"],
+                    "placa": t["vehicle_plate"],
+                    "tipo_carroceria": "Carroceria Aberta (Grade Baixa)",
+                    "capacidade_kg": t.get("vehicle_capacity_kg", 4800.0),
+                    "volume_util_m3": t.get("vehicle_useful_volume_m3", 18.5),
+                    "permite_barras_6m": t.get("vehicle_allows_long_items", True),
+                },
+                "total_pedidos": t["total_orders"],
+                "peso_total_kg": t["total_weight_kg"],
+                "volume_total_m3": t["total_volume_m3"],
+                "faturamento_total": t["total_value"],
+                "ocupacao_peso_pct": t["weight_occupancy_pct"],
+                "ocupacao_volume_pct": t["volume_occupancy_pct"],
+                "recurso_limitante": t["limiting_resource"],
+                "alerta_carroceria": alerta,
+                "pedidos_carroceria": pedidos_carroceria
+            })
+        return formatted
+
+    def format_delivery_route_response(self, trips: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Formata viagens para a visão de Ordem de Entrega (Roteiro TSP) com drill-down."""
+        formatted: List[Dict[str, Any]] = []
+        for t in trips:
+            # Ordena por delivery_order crescente (1ª parada, 2ª parada...)
+            items_by_deliv = sorted(t.get("items", []), key=lambda x: x.get("delivery_order", 1))
+
+            paradas = []
+            total_receber = 0.0
+            for it in items_by_deliv:
+                val = it.get("total_value", it.get("value", 0.0))
+                is_collect = it.get("payment_on_delivery") == "A RECEBER"
+                if is_collect:
+                    total_receber += val
+
+                paradas.append({
+                    "parada": it.get("delivery_order", 1),
+                    "pedido": it["id"],
+                    "external_id": it.get("external_id", it["id"]),
+                    "cliente": it.get("customer"),
+                    "cidade": it.get("city_name"),
+                    "endereco_completo": it.get("formatted_address") or it.get("address_line") or it.get("city_name"),
+                    "posicao_na_carroceria": it.get("posicao_na_carroceria", "Carroceria Aberta"),
+                    "valor_pedido": val,
+                    "status_pagamento": "A RECEBER" if is_collect else "QUITADO",
+                    "valor_a_receber": val if is_collect else 0.0,
+                    "alerta_cobranca": "Exigir comprovante PIX/Dinheiro antes do descarregamento!" if is_collect else None,
+                    "peso_total_kg": it.get("total_weight_kg", it.get("weight_kg", 0.0)),
+                    "volume_total_m3": it.get("total_volume_m3", it.get("volume_m3", 0.0)),
+                    "possui_itens_6m": it.get("has_long_items", False),
+                    "itens": it.get("items", [])  # DRILL-DOWN ANINHADO
+                })
+
+            formatted.append({
+                "viagem_id": t["trip_id"],
+                "viagem_numero": t["trip_number"],
+                "titulo": t["trip_title"],
+                "eixo_id": t["axis_id"],
+                "eixo_nome": t["axis_name"],
+                "veiculo": {
+                    "id": t["vehicle_id"],
+                    "nome": t["vehicle_name"],
+                    "placa": t["vehicle_plate"],
+                    "tipo": "Carroceria Aberta",
+                },
+                "total_paradas": t["total_orders"],
+                "faturamento_total": t["total_value"],
+                "total_a_receber_rota": round(total_receber, 2),
+                "distancia_estimada_km": t.get("estimated_tortuosity_distance_km", 0.0),
+                "paradas": paradas
+            })
+        return formatted
+
     def _get_fleet_vehicles(self) -> List[Dict[str, Any]]:
         """Recupera a frota oficial cadastrada no banco ou a semente oficial."""
         if self.db:
@@ -329,38 +555,46 @@ class DailyDispatchPipeline:
                         "useful_length_m": v.useful_length_m,
                         "allows_long_items": v.allows_long_items,
                         "restricted_to_crateus": v.restricted_to_crateus,
-                        "operates_intermunicipal": v.operates_intermunicipal,
                     }
                     for v in db_v
                 ]
-        return DEFAULT_VEHICLES
+
+        return [
+            {
+                "id": v["id"],
+                "name": v["name"],
+                "plate": v["plate"],
+                "capacity_kg": v["capacity_kg"],
+                "useful_volume_m3": v["useful_volume_m3"],
+                "useful_length_m": v["useful_length_m"],
+                "allows_long_items": v["allows_long_items"],
+                "restricted_to_crateus": v.get("restricted_to_crateus", False),
+            }
+            for v in DEFAULT_VEHICLES
+            if v.get("active", True)
+        ]
 
     def _select_vehicle_for_trip(
         self,
         axis_id: str,
-        pending_orders: List[Dict[str, Any]],
-        large_trucks: List[Dict[str, Any]],
-        medium_trucks: List[Dict[str, Any]],
-        trip_number: int
-    ) -> Dict[str, Any]:
-        """Seleciona o caminhão mais adequado respeitando restrições territoriais e dimensionais."""
+        trip_idx: int,
+        fleet: List[Dict[str, Any]],
+        pending_orders: List[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        """Seleciona o caminhão mais adequado para a viagem considerando território e itens longos."""
+        is_crateus_urban = (axis_id == "eixo-0-crateus-urbano")
         has_6m = any(o.get("has_long_items", False) for o in pending_orders)
 
-        # Se for o Eixo Urbano / Distrital de Crateús:
-        if axis_id == "eixo-0-crateus-urbano":
-            # Se não tiver peças de 6m e houver caminhão médio disponível, usa o médio (Bongo ou HR)
-            if not has_6m and medium_trucks:
-                # Alterna entre os dois caminhões médios conforme a viagem
-                idx = (trip_number - 1) % len(medium_trucks)
-                return medium_trucks[idx]
-            # Se tiver peças de 6m ou carga muito pesada, usa o caminhão grande
-            idx = (trip_number - 1) % len(large_trucks)
-            return large_trucks[idx]
+        if is_crateus_urban and not has_6m:
+            medium_trucks = [v for v in fleet if v.get("restricted_to_crateus", False)]
+            if medium_trucks:
+                return medium_trucks[(trip_idx - 1) % len(medium_trucks)]
 
-        # Eixos Intermunicipais (Eixos 1 a 5):
-        # Exigem compulsoriamente os Caminhões Grandes (Mercedes Accelo 815)
-        idx = (trip_number - 1) % len(large_trucks)
-        return large_trucks[idx]
+        large_trucks = [v for v in fleet if not v.get("restricted_to_crateus", False) and v.get("allows_long_items", False)]
+        if large_trucks:
+            return large_trucks[(trip_idx - 1) % len(large_trucks)]
+
+        return fleet[0] if fleet else None
 
     def _select_feasible_mandatory(
         self,
@@ -368,22 +602,35 @@ class DailyDispatchPipeline:
         orders: List[Dict[str, Any]],
         vehicle: Dict[str, Any]
     ) -> List[str]:
-        """Garante que a lista de pedidos obrigatórios não exceda individualmente a capacidade do caminhão."""
-        feasible_mandatory = []
-        acc_w = 0.0
-        acc_v = 0.0
+        """Seleciona subconjunto viável de pedidos obrigatórios que cabem fisicamente no veículo."""
+        if not urgent_ids:
+            return []
 
-        for oid in urgent_ids:
-            ord_obj = next((o for o in orders if o["id"] == oid), None)
+        orders_map = {o["id"]: o for o in orders}
+        accum_w = 0.0
+        accum_v = 0.0
+        feasible_ids = []
+
+        urgent_sorted = sorted(
+            urgent_ids,
+            key=lambda oid: orders_map.get(oid, {}).get("total_value", 0.0),
+            reverse=True
+        )
+
+        for oid in urgent_sorted:
+            ord_obj = orders_map.get(oid)
             if not ord_obj:
                 continue
-            w = ord_obj["total_weight_kg"]
-            v = ord_obj["total_volume_m3"]
-            if ord_obj.get("has_long_items") and not vehicle["allows_long_items"]:
-                continue
-            if (acc_w + w <= vehicle["capacity_kg"]) and (acc_v + v <= vehicle["useful_volume_m3"]):
-                feasible_mandatory.append(oid)
-                acc_w += w
-                acc_v += v
 
-        return feasible_mandatory
+            w = ord_obj.get("total_weight_kg", 0.0)
+            v = ord_obj.get("total_volume_m3", 0.0)
+
+            if ord_obj.get("has_long_items", False) and not vehicle.get("allows_long_items", False):
+                continue
+
+            if accum_w + w <= vehicle["capacity_kg"] and accum_v + v <= vehicle["useful_volume_m3"]:
+                accum_w += w
+                accum_v += v
+                feasible_ids.append(oid)
+
+        return feasible_ids
